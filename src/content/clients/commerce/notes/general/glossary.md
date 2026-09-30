@@ -7,8 +7,3 @@
 | Hydrogen | Shopify's React-based storefront framework |
 | Storefront API | Shopify's GraphQL API for storefront data |
 | PCI | Payment Card Industry — compliance for handling payments |
-
-## Useful Links
-
-- [Hydrogen docs](https://shopify.dev/docs/custom-storefronts/hydrogen)
-- [Storefront API reference](https://shopify.dev/docs/api/storefront)

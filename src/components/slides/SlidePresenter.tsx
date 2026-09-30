@@ -152,7 +152,7 @@ export function SlidePresenter({
           </button>
           <button
             onClick={onExit}
-            className="ml-2 text-sm text-ink-300 hover:text-white transition-colors px-3 py-1 rounded hover:bg-ink-700"
+            className="ml-2 text-sm text-ink-300 hover:text-ink-50 transition-colors px-3 py-1 rounded hover:bg-ink-700"
           >
             Exit
           </button>
@@ -189,10 +189,10 @@ function SlideOverview({
     <div className="flex flex-col h-full bg-ink-950 p-6 overflow-y-auto">
       <style dangerouslySetInnerHTML={{ __html: css }} />
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold text-white">{deckName} — Overview</h2>
+        <h2 className="text-lg font-semibold text-ink-50">{deckName} — Overview</h2>
         <button
           onClick={onExitOverview}
-          className="text-sm text-ink-300 hover:text-white transition-colors"
+          className="text-sm text-ink-300 hover:text-ink-50 transition-colors"
         >
           Back to presentation
         </button>

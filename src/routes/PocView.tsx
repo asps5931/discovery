@@ -33,7 +33,7 @@ export function PocView() {
       <div className="fixed top-4 left-4 z-[60]">
         <Link
           to={`/${client.slug}`}
-          className="inline-flex items-center gap-2 rounded-lg bg-ink-900/90 border border-ink-700 px-3 py-2 text-sm text-ink-200 hover:text-white hover:bg-ink-800 backdrop-blur transition-colors shadow-lg"
+          className="inline-flex items-center gap-2 rounded-lg bg-ink-900/90 border border-ink-700 px-3 py-2 text-sm text-ink-200 hover:text-ink-50 hover:bg-ink-800 backdrop-blur transition-colors shadow-lg"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to portal

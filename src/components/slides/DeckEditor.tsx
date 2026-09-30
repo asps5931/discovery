@@ -55,7 +55,7 @@ export function DeckEditor({
         <div className="flex items-center gap-2">
           <button
             onClick={onReset}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-ink-300 hover:text-white hover:bg-ink-800 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-ink-300 hover:text-ink-50 hover:bg-ink-800 transition-colors"
           >
             <RotateCcw className="h-4 w-4" /> Reset
           </button>
@@ -68,7 +68,7 @@ export function DeckEditor({
           </button>
           <button
             onClick={onExit}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-ink-300 hover:text-white hover:bg-ink-800 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-ink-300 hover:text-ink-50 hover:bg-ink-800 transition-colors"
           >
             <X className="h-4 w-4" /> Done
           </button>

@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Light theme — WCAG AA text (≥4.5:1) and UI borders (≥3:1) */
+  --ink-950: 248 249 251;
+  --ink-900: 255 255 255;
+  --ink-800: 241 243 246;
+  --ink-700: 137 140 145;
+  --ink-600: 112 117 126;
+  --ink-500: 96 101 110;
+  --ink-400: 82 87 96;
+  --ink-300: 58 62 70;
+  --ink-200: 38 42 48;
+  --ink-100: 22 24 28;
+  --ink-50: 12 13 16;
+  color-scheme: light;
+}
+
+.dark {
+  /* Dark theme — WCAG AA text (≥4.5:1) and UI borders (≥3:1) */
+  --ink-950: 10 10 11;
+  --ink-900: 19 19 22;
+  --ink-800: 32 34 38;
+  --ink-700: 105 108 113;
+  --ink-600: 120 124 134;
+  --ink-500: 140 144 154;
+  --ink-400: 170 174 184;
+  --ink-300: 196 200 208;
+  --ink-200: 214 218 224;
+  --ink-100: 230 233 238;
+  --ink-50: 245 246 248;
+  color-scheme: dark;
+}
+
 @layer base {
   * {
     @apply border-ink-700;
@@ -16,61 +48,92 @@
 
 @layer components {
   .prose-doc {
-    @apply max-w-3xl mx-auto leading-relaxed;
+    @apply max-w-3xl mx-auto leading-snug;
   }
   .prose-doc h1 {
-    @apply text-3xl font-bold mb-6 text-white;
+    @apply text-3xl font-bold mb-3 text-ink-50;
   }
   .prose-doc h2 {
-    @apply text-2xl font-semibold mt-10 mb-4 text-white;
+    @apply text-2xl font-semibold mt-6 mb-2 text-ink-50;
   }
   .prose-doc h3 {
-    @apply text-xl font-semibold mt-6 mb-3 text-ink-100;
+    @apply text-xl font-semibold mt-4 mb-1.5 text-ink-100;
+  }
+  .prose-doc h4 {
+    @apply text-lg font-semibold mt-4 mb-1.5 text-ink-100;
+  }
+  .prose-doc h5 {
+    @apply text-base font-semibold mt-3 mb-1 text-ink-200;
   }
   .prose-doc p {
-    @apply text-ink-200 mb-4 leading-7;
+    @apply text-ink-200 mb-2 leading-snug;
   }
   .prose-doc ul {
-    @apply list-disc list-outside mb-4 space-y-2 text-ink-200 pl-5;
+    @apply list-disc list-outside mb-2 space-y-0 text-ink-200 ml-4 pl-5;
   }
   .prose-doc ol {
-    @apply list-decimal list-outside mb-4 space-y-2 text-ink-200 pl-5;
+    @apply list-decimal list-outside mb-2 space-y-0 text-ink-200 ml-4 pl-6;
+  }
+  .prose-doc li::marker {
+    @apply text-ink-400;
+  }
+  .prose-doc ol > li {
+    @apply pl-1;
+  }
+  .prose-doc li > p {
+    @apply mb-0;
+  }
+  .prose-doc li > ul,
+  .prose-doc li > ol {
+    @apply ml-0 mt-0.5 mb-0.5;
+  }
+  .prose-doc ol ol {
+    list-style-type: lower-alpha;
   }
   .prose-doc li {
-    @apply leading-7;
+    @apply leading-snug;
+  }
+  .prose-doc li + li {
+    @apply mt-0;
   }
   .prose-doc strong {
-    @apply text-white font-semibold;
+    @apply text-ink-50 font-semibold;
   }
   .prose-doc em {
     @apply text-ink-100 italic;
   }
   .prose-doc a {
-    @apply text-accent-400 underline underline-offset-2 hover:text-accent-300 transition-colors;
+    @apply text-accent-700 dark:text-accent-400 underline underline-offset-2 hover:text-accent-800 dark:hover:text-accent-300 transition-colors;
   }
   .prose-doc code {
-    @apply font-mono text-sm text-accent-300 bg-ink-800 px-1.5 py-0.5 rounded;
+    @apply font-mono text-sm text-accent-800 dark:text-accent-300 bg-ink-800 px-1.5 py-0.5 rounded;
   }
   .prose-doc pre {
-    @apply bg-ink-900 border border-ink-700 rounded-lg p-4 mb-4 overflow-x-auto;
+    @apply bg-ink-900 border border-ink-700 rounded-lg p-3 mb-2 overflow-x-auto;
   }
   .prose-doc pre code {
     @apply bg-transparent text-ink-100 p-0;
   }
   .prose-doc blockquote {
-    @apply border-l-2 border-accent-500 pl-4 italic text-ink-300 mb-4;
+    @apply border-l-2 border-accent-500 pl-4 italic text-ink-300 mb-2;
   }
   .prose-doc table {
-    @apply w-full text-sm mb-4 border-collapse;
+    @apply w-full text-sm mb-2 border-collapse;
   }
   .prose-doc th {
-    @apply text-left font-semibold text-white border-b border-ink-600 pb-2 pt-2 px-3;
+    @apply text-left font-semibold text-ink-50 border-b border-ink-600 py-1.5 px-2.5;
   }
   .prose-doc td {
-    @apply border-b border-ink-700 py-2 px-3 text-ink-200;
+    @apply border-b border-ink-700 py-1.5 px-2.5 text-ink-200;
+  }
+  .prose-doc img {
+    @apply max-w-full h-auto rounded-lg border border-ink-700 my-2;
+  }
+  .prose-doc img.ProseMirror-selectednode {
+    @apply ring-2 ring-accent-500;
   }
   .prose-doc hr {
-    @apply border-ink-700 my-8;
+    @apply border-ink-700 my-4;
   }
 }
 
@@ -99,4 +162,60 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-ink-500;
+}
+
+/* TipTap / ProseMirror inline editor */
+.ProseMirror {
+  outline: none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: rgb(var(--ink-500) / 1);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1rem;
+  table-layout: fixed;
+  overflow: hidden;
+}
+.ProseMirror.ProseMirror-focused table,
+.ProseMirror table.editor-table {
+  outline: none;
+}
+.ProseMirror th,
+.ProseMirror td {
+  border: 1px solid rgb(var(--ink-700) / 1);
+  padding: 0.35rem 0.6rem;
+  vertical-align: top;
+  position: relative;
+  min-width: 80px;
+}
+.ProseMirror th {
+  font-weight: 600;
+  background: rgb(var(--ink-800) / 1);
+  color: rgb(var(--ink-50) / 1);
+}
+.ProseMirror td {
+  color: rgb(var(--ink-200) / 1);
+  background: rgb(var(--ink-950) / 0.4);
+}
+.ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--accent-500) / 0.12);
+  pointer-events: none;
+  z-index: 2;
+}
+.ProseMirror th p,
+.ProseMirror td p {
+  margin: 0;
+}
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
 }

@@ -12,6 +12,10 @@ export interface Deck {
 }
 
 export interface RequirementDoc {
+  /** Stable unique id: `{clientSlug}/{group}/{slug}` */
+  id: string;
+  /** Jira-style key from project name, e.g. `COMM-1` */
+  key: string;
   clientSlug: string;
   group: string;
   slug: string;

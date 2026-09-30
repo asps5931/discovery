@@ -7,6 +7,8 @@ import { DeckView } from "./routes/DeckView";
 import { RequirementsView } from "./routes/RequirementsView";
 import { NotesView } from "./routes/NotesView";
 import { PocView } from "./routes/PocView";
+import { SiteProfileView } from "./routes/SiteProfileView";
+import { ActionItemsView } from "./routes/ActionItemsView";
 
 function PortalLayout() {
   return (
@@ -35,6 +37,12 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/:clientSlug" element={<ClientPage />} />
         <Route path="/:clientSlug/decks/:deckSlug" element={<DeckView />} />
+        <Route path="/:clientSlug/site-profile" element={<SiteProfileView />} />
+        <Route path="/:clientSlug/action-items" element={<ActionItemsView />} />
+        <Route
+          path="/:clientSlug/requirements"
+          element={<RequirementsView />}
+        />
         <Route
           path="/:clientSlug/requirements/:groupSlug"
           element={<RequirementsView />}
@@ -44,7 +52,11 @@ export default function App() {
           element={<RequirementsView />}
         />
         <Route
-          path="/:clientSlug/notes/:groupSlug"
+          path="/:clientSlug/references/:groupSlug"
+          element={<NotesView />}
+        />
+        <Route
+          path="/:clientSlug/references/:groupSlug/:docSlug"
           element={<NotesView />}
         />
       </Route>

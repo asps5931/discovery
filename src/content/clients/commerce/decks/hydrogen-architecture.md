@@ -144,7 +144,7 @@ Every **100ms** of latency reduction typically yields a **1% increase** in conve
 ---
 
 <!-- _class: lead -->
-<!-- _backgroundColor: #1ba87c -->
+<!-- _backgroundColor: #e90130 -->
 <!-- _color: #ffffff -->
 
 # Next Steps

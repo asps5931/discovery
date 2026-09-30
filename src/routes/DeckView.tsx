@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
-import { ChevronRight, Play, FileText, Pencil } from "lucide-react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ChevronRight, Play, Pencil, Trash2 } from "lucide-react";
 import {
   getClient,
   getOriginalDeckMarkdown,
   getDeckMarkdown,
-  titleFromSlug,
+  getDeckDisplayName,
 } from "../lib/discovery";
 import { renderDeck } from "../lib/marp";
 import { SlidePresenter } from "../components/slides/SlidePresenter";
@@ -14,15 +14,23 @@ import {
   loadDeckOverride,
   saveDeckOverride,
   clearDeckOverride,
+  isUserDeck,
+  deleteUserDeck,
+  starterDeckMarkdown,
+  DECKS_CHANGED_EVENT,
 } from "../lib/deckStorage";
 
 export function DeckView() {
   const { clientSlug, deckSlug } = useParams<{ clientSlug: string; deckSlug: string }>();
+  const navigate = useNavigate();
   const [presentMode, setPresentMode] = useState(false);
   const [presentIndex, setPresentIndex] = useState(0);
   const [editMode, setEditMode] = useState(false);
+  const [deckTick, setDeckTick] = useState(0);
 
   const client = clientSlug ? getClient(clientSlug) : undefined;
+  const userCreated =
+    clientSlug && deckSlug ? isUserDeck(clientSlug, deckSlug) : false;
   const originalMarkdown =
     clientSlug && deckSlug ? getOriginalDeckMarkdown(clientSlug, deckSlug) : undefined;
 
@@ -30,13 +38,24 @@ export function DeckView() {
     clientSlug && deckSlug ? getDeckMarkdown(clientSlug, deckSlug) : undefined
   );
 
-  const savedMarkdown = useMemo(
-    () =>
-      clientSlug && deckSlug
-        ? loadDeckOverride(clientSlug, deckSlug) ?? originalMarkdown
-        : undefined,
-    [clientSlug, deckSlug, originalMarkdown]
-  );
+  useEffect(() => {
+    if (clientSlug && deckSlug) {
+      setMarkdown(getDeckMarkdown(clientSlug, deckSlug));
+    }
+  }, [clientSlug, deckSlug, deckTick]);
+
+  useEffect(() => {
+    const refresh = () => setDeckTick((t) => t + 1);
+    window.addEventListener(DECKS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(DECKS_CHANGED_EVENT, refresh);
+  }, []);
+
+  const savedMarkdown = useMemo(() => {
+    if (!clientSlug || !deckSlug) return undefined;
+    const override = loadDeckOverride(clientSlug, deckSlug);
+    if (override !== null) return override;
+    return originalMarkdown;
+  }, [clientSlug, deckSlug, originalMarkdown, deckTick]);
 
   const dirty = useMemo(
     () => markdown !== undefined && savedMarkdown !== undefined && markdown !== savedMarkdown,
@@ -46,7 +65,7 @@ export function DeckView() {
   const hasSavedOverride = useMemo(
     () =>
       clientSlug && deckSlug ? loadDeckOverride(clientSlug, deckSlug) !== null : false,
-    [clientSlug, deckSlug, markdown]
+    [clientSlug, deckSlug, markdown, deckTick]
   );
 
   const handleSave = useCallback(() => {
@@ -56,9 +75,23 @@ export function DeckView() {
 
   const handleReset = useCallback(() => {
     if (!clientSlug || !deckSlug) return;
+    if (userCreated) {
+      const name = getDeckDisplayName(clientSlug, deckSlug);
+      const starter = starterDeckMarkdown(name);
+      saveDeckOverride(clientSlug, deckSlug, starter);
+      setMarkdown(starter);
+      return;
+    }
     clearDeckOverride(clientSlug, deckSlug);
     setMarkdown(originalMarkdown);
-  }, [clientSlug, deckSlug, originalMarkdown]);
+  }, [clientSlug, deckSlug, originalMarkdown, userCreated]);
+
+  const handleDelete = useCallback(() => {
+    if (!clientSlug || !deckSlug || !userCreated) return;
+    if (!window.confirm("Delete this deck? This cannot be undone.")) return;
+    deleteUserDeck(clientSlug, deckSlug);
+    navigate(`/${clientSlug}`);
+  }, [clientSlug, deckSlug, userCreated, navigate]);
 
   if (!client) {
     return (
@@ -71,15 +104,19 @@ export function DeckView() {
   if (!markdown) {
     return (
       <div className="flex flex-col h-full">
-        <Breadcrumbs clientName={client.name} clientSlug={client.slug} deckSlug={deckSlug || ""} />
+        <Breadcrumbs
+          clientName={client.name}
+          clientSlug={client.slug}
+          deckName={deckSlug || ""}
+        />
         <div className="flex items-center justify-center flex-1 text-ink-400">
-          Deck not found. Add a .md file in the decks folder.
+          Deck not found. Add a .md file in the decks folder, or create a new deck from the client page.
         </div>
       </div>
     );
   }
 
-  const deckName = titleFromSlug(deckSlug || "");
+  const deckName = getDeckDisplayName(client.slug, deckSlug || "");
 
   if (presentMode) {
     return (
@@ -97,7 +134,11 @@ export function DeckView() {
   if (editMode) {
     return (
       <div className="flex flex-col h-full">
-        <Breadcrumbs clientName={client.name} clientSlug={client.slug} deckSlug={deckSlug || ""} />
+        <Breadcrumbs
+          clientName={client.name}
+          clientSlug={client.slug}
+          deckName={deckName}
+        />
         <div className="flex-1 overflow-hidden">
           <DeckEditor
             markdown={markdown}
@@ -114,19 +155,35 @@ export function DeckView() {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      <Breadcrumbs clientName={client.name} clientSlug={client.slug} deckSlug={deckSlug || ""} />
+      <Breadcrumbs
+        clientName={client.name}
+        clientSlug={client.slug}
+        deckName={deckName}
+      />
 
       <div className="px-10 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">{deckName}</h1>
-            {hasSavedOverride && (
-              <p className="text-xs text-amber-400 mt-1">
+            <h1 className="text-2xl font-bold text-ink-50">{deckName}</h1>
+            {userCreated ? (
+              <p className="text-xs text-ink-400 mt-1">
+                User-created deck — stored in this browser.
+              </p>
+            ) : hasSavedOverride ? (
+              <p className="text-xs text-amber-800 dark:text-amber-400 mt-1">
                 This deck has saved edits. Reset to restore the original.
               </p>
-            )}
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
+            {userCreated && (
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-ink-600 text-ink-200 text-sm font-medium hover:bg-ink-800 hover:text-red-400 transition-colors"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
+            )}
             <button
               onClick={() => setEditMode(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-ink-600 text-ink-200 text-sm font-medium hover:bg-ink-800 transition-colors"
@@ -147,7 +204,6 @@ export function DeckView() {
 
         <DeckPreview
           markdown={markdown}
-          deckName={deckName}
           onSlideDoubleClick={(i) => {
             setPresentIndex(i);
             setPresentMode(true);
@@ -160,11 +216,9 @@ export function DeckView() {
 
 function DeckPreview({
   markdown,
-  deckName,
   onSlideDoubleClick,
 }: {
   markdown: string;
-  deckName: string;
   onSlideDoubleClick: (index: number) => void;
 }) {
   const { htmls, css } = useMemo(() => renderDeck(markdown), [markdown]);
@@ -198,18 +252,26 @@ function DeckPreview({
   );
 }
 
-function Breadcrumbs({ clientName, clientSlug, deckSlug }: { clientName: string; clientSlug: string; deckSlug: string }) {
+function Breadcrumbs({
+  clientName,
+  clientSlug,
+  deckName,
+}: {
+  clientName: string;
+  clientSlug: string;
+  deckName: string;
+}) {
   return (
     <div className="px-10 pt-6">
-      <Link to="/" className="text-sm text-ink-400 hover:text-white transition-colors">
+      <Link to="/" className="text-sm text-ink-400 hover:text-ink-50 transition-colors">
         Clients
       </Link>
       <ChevronRight className="inline h-3 w-3 text-ink-500 mx-1" />
-      <Link to={`/${clientSlug}`} className="text-sm text-ink-400 hover:text-white transition-colors">
+      <Link to={`/${clientSlug}`} className="text-sm text-ink-400 hover:text-ink-50 transition-colors">
         {clientName}
       </Link>
       <ChevronRight className="inline h-3 w-3 text-ink-500 mx-1" />
-      <span className="text-sm text-ink-200">{titleFromSlug(deckSlug)}</span>
+      <span className="text-sm text-ink-200">{deckName}</span>
     </div>
   );
 }

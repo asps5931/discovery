@@ -60,6 +60,21 @@ export function deleteUserNote(clientSlug: string, noteId: string): void {
   }
 }
 
+export function updateUserNote(
+  clientSlug: string,
+  noteId: string,
+  patch: Partial<Pick<UserNote, "title" | "content" | "tags">>
+): void {
+  const notes = listUserNotes(clientSlug).map((n) =>
+    n.id === noteId ? { ...n, ...patch } : n
+  );
+  try {
+    localStorage.setItem(notesKey(clientSlug), JSON.stringify(notes));
+  } catch {
+    // Storage may be unavailable or full.
+  }
+}
+
 export function loadNoteDraft(
   clientSlug: string,
   group: string

@@ -15,7 +15,7 @@ export function RequirementsTable({
             {headers.map((h, i) => (
               <th
                 key={i}
-                className="text-left font-semibold text-white border-b border-ink-600 pb-2 pt-2 px-3"
+                className="text-left font-semibold text-ink-50 border-b border-ink-600 pb-2 pt-2 px-3"
               >
                 {h}
               </th>

@@ -7,7 +7,7 @@ export function Landing() {
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       <div className="px-10 py-12 max-w-6xl mx-auto w-full">
-        <h1 className="text-4xl font-bold text-white mb-3">Discovery</h1>
+        <h1 className="text-4xl font-bold text-ink-50 mb-3">Discovery</h1>
         <p className="text-ink-400 text-lg mb-12">
           Slide decks, requirements, and proof-of-concept demos — all in one place.
         </p>
@@ -27,7 +27,7 @@ export function Landing() {
                   to={`/${client.slug}`}
                   className="group rounded-xl border border-ink-700 bg-ink-900 p-6 hover:border-accent-500/50 hover:bg-ink-800/50 transition-all"
                 >
-                  <h2 className="text-xl font-semibold text-white mb-1">
+                  <h2 className="text-xl font-semibold text-ink-50 mb-1">
                     {client.name}
                   </h2>
                   {client.description && (

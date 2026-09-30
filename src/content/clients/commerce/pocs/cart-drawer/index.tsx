@@ -72,7 +72,7 @@ export default function CartDrawerPoc() {
       <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Northwind Store</h1>
+            <h1 className="text-xl font-bold tracking-tight">Commerce</h1>
             <p className="text-sm text-gray-500">Cart Drawer Prototype</p>
           </div>
           <button

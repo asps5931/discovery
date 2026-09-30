@@ -1,0 +1,4 @@
+- [ ] Retrieve prod site URL
+- [ ] Get added to PS shopify partner portal
+- [ ] Get access to tapestry jira and confluence
+- [ ] Diagram current ecommerce infrastructure

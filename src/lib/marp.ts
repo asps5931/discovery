@@ -10,15 +10,15 @@ const clientPortalTheme = `
 :root {
   --color-background: #0a0a0b;
   --color-foreground: #e4e7ec;
-  --color-highlight: #1ba87c;
+  --color-highlight: #e90130;
   --color-dimmed: #9ea3ad;
-  --color-accent: #40c896;
+  --color-accent: #ff5c75;
 }
 
 section {
   background-color: var(--color-background);
   color: var(--color-foreground);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Roboto', sans-serif;
   font-size: 30px;
   padding: 60px 80px;
   justify-content: center;
@@ -87,7 +87,7 @@ section a {
 section code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.78em;
-  color: #7ce0b9;
+  color: #ff97a6;
   background-color: #26282d;
   padding: 2px 8px;
   border-radius: 6px;
