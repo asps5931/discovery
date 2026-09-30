@@ -20,6 +20,7 @@ import {
   getRequirementTitle,
   useTitlesVersion,
 } from "../components/docs/EditableTitle";
+import { FEATURES_LIST_GROUP, FeaturesList, FeaturesListPage } from "../components/docs/FeaturesList";
 
 function NewRequirement({
   clientSlug,
@@ -248,14 +249,16 @@ function AllRequirementsView({
                 <h2 className="text-sm uppercase tracking-wider text-ink-400 font-semibold">
                   {group.name}
                 </h2>
-                <NewRequirement
-                  clientSlug={clientSlug}
-                  groupSlug={group.slug}
-                  groupName={group.name}
-                  compact
-                />
+                {group.slug !== FEATURES_LIST_GROUP && (
+                  <NewRequirement
+                    clientSlug={clientSlug}
+                    groupSlug={group.slug}
+                    groupName={group.name}
+                    compact
+                  />
+                )}
               </div>
-              {group.docs.map((doc) => (
+              {(group.slug === FEATURES_LIST_GROUP ? group.docs.slice(0, 1) : group.docs).map((doc) => (
                 <RequirementDocSection
                   key={doc.id}
                   clientSlug={clientSlug}
@@ -287,6 +290,16 @@ function RequirementGroupView({
   const group = groups.find((g) => g.slug === groupSlug)!;
   const groupName = group.name;
   useTitlesVersion();
+
+  if (group.slug === FEATURES_LIST_GROUP && group.docs[0]) {
+    return (
+      <FeaturesListPage
+        clientName={clientName}
+        clientSlug={clientSlug}
+        docSlug={group.docs[0].slug}
+      />
+    );
+  }
   const allCount = groups.reduce((n, g) => n + g.docs.length, 0);
   const tocItems = group.docs.map((doc) => ({
     id: requirementAnchorId(doc),
@@ -406,7 +419,9 @@ function RequirementDocSection({
         </Link>
       </div>
       <div className="px-4 py-4">
-        {markdown ? (
+        {groupSlug === FEATURES_LIST_GROUP ? (
+          <FeaturesList clientSlug={clientSlug} groupSlug={groupSlug} docSlug={docSlug} />
+        ) : markdown ? (
           <InlineMarkdownEditor value={markdown} onSave={handleSave} />
         ) : (
           <div className="text-ink-400 text-sm px-2">Document not found.</div>
@@ -505,11 +520,16 @@ function RequirementDocView({
           <EditableRequirementTitle doc={doc} className="flex-1" />
         </h1>
 
-        <TableOfContents items={tocItems} title="On this page" />
-
-        <div ref={contentRef}>
-          <InlineMarkdownEditor value={markdown} onSave={handleSave} />
-        </div>
+        {groupSlug === FEATURES_LIST_GROUP ? (
+          <FeaturesList clientSlug={clientSlug} groupSlug={groupSlug} docSlug={docSlug} />
+        ) : (
+          <>
+            <TableOfContents items={tocItems} title="On this page" />
+            <div ref={contentRef}>
+              <InlineMarkdownEditor value={markdown} onSave={handleSave} />
+            </div>
+          </>
+        )}
 
         <div className="flex items-center justify-between mt-12 pt-6 border-t border-ink-700">
           {prevDoc ? (

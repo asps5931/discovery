@@ -174,16 +174,28 @@ export function Sidebar() {
                     />
                   )}
 
-                  {clientPocs.length > 0 && (
+                  {(clientPocs.length > 0 || client.slug === "commerce") && (
                     <SidebarSection
                       sectionKey={`${client.slug}:pocs`}
                       label="POCs"
                       icon={<FlaskConical className="h-3.5 w-3.5" />}
-                      items={clientPocs.map((p) => ({
-                        slug: p.slug,
-                        name: p.name,
-                        path: `/${client.slug}/pocs/${p.slug}`,
-                      }))}
+                      items={[
+                        ...(client.slug === "commerce"
+                          ? [
+                              {
+                                slug: "headless",
+                                name: "Headless",
+                                path: "https://tulsa-set-fresh-shirts.tryhydrogen.dev/",
+                                external: true,
+                              },
+                            ]
+                          : []),
+                        ...clientPocs.map((p) => ({
+                          slug: p.slug,
+                          name: p.name,
+                          path: `/${client.slug}/pocs/${p.slug}`,
+                        })),
+                      ]}
                       location={location}
                       open={sectionOpen[`${client.slug}:pocs`] ?? true}
                       onToggle={() => toggleSection(`${client.slug}:pocs`)}
@@ -234,7 +246,7 @@ function SidebarSection({
   label: string;
   href?: string;
   icon: React.ReactNode;
-  items: { slug: string; name: string; path: string; badge?: string }[];
+  items: { slug: string; name: string; path: string; badge?: string; external?: boolean }[];
   location: { pathname: string };
   open: boolean;
   onToggle: () => void;
@@ -290,23 +302,35 @@ function SidebarSection({
       {open && (
         <div id={panelId} role="region" aria-label={label} className="mt-0.5 space-y-0.5">
           {items.map((item) => {
-            const isActive = location.pathname.startsWith(item.path);
-            return (
-              <Link
-                key={item.slug}
-                to={item.path}
-                className={`flex items-center gap-2 rounded-md py-1.5 pl-8 pr-2 text-sm transition-colors ${
-                  isActive
-                    ? "bg-accent-500/10 text-accent-800 dark:text-accent-300 font-medium"
-                    : "text-ink-300 hover:bg-ink-800/50 hover:text-ink-50"
-                }`}
-              >
+            const isActive = !item.external && location.pathname.startsWith(item.path);
+            const className = `flex items-center gap-2 rounded-md py-1.5 pl-8 pr-2 text-sm transition-colors ${
+              isActive
+                ? "bg-accent-500/10 text-accent-800 dark:text-accent-300 font-medium"
+                : "text-ink-300 hover:bg-ink-800/50 hover:text-ink-50"
+            }`;
+            const label = (
+              <>
                 <span className="truncate flex-1">{item.name}</span>
                 {item.badge && (
                   <span className="shrink-0 text-[11px] font-medium tabular-nums text-ink-400">
                     {item.badge}
                   </span>
                 )}
+              </>
+            );
+            return item.external ? (
+              <a
+                key={item.slug}
+                href={item.path}
+                target="_blank"
+                rel="noreferrer"
+                className={className}
+              >
+                {label}
+              </a>
+            ) : (
+              <Link key={item.slug} to={item.path} className={className}>
+                {label}
               </Link>
             );
           })}

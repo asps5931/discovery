@@ -48,52 +48,6 @@ title: "Checkout Questionnaire"
 
 &nbsp;
 
-## Order types and restrictions
-
-1.  Do orders include subscriptions or preorders?
-    
-
-&nbsp;
-
-&nbsp;
-
-&nbsp;
-
-&nbsp;
-
-2.  Are there purchasing restrictions (i.e., minimum quantities, order limits or restricted products)?
-    
-
-&nbsp;
-
-&nbsp;
-
-&nbsp;
-
-&nbsp;
-
-3.  Does the site support B2C, B2B or both?
-    
-
-&nbsp;
-
-&nbsp;
-
-&nbsp;
-
-&nbsp;
-
-4.  Does the site use customer groups (i.e., retail, wholesale or VIP)?
-    
-
-&nbsp;
-
-&nbsp;
-
-&nbsp;
-
-&nbsp;
-
 ## Checkout experience and customer information
 
 1.  Can customers check out as guests, or is an account required?
@@ -426,6 +380,52 @@ title: "Checkout Questionnaire"
 &nbsp;
 
 5.  Does the site support tax-exempt customers or orders?
+    
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+## Order types and restrictions
+
+1.  Do orders include subscriptions or preorders?
+    
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+2.  Are there purchasing restrictions (i.e., minimum quantities, order limits or restricted products)?
+    
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+3.  Does the site support B2C, B2B or both?
+    
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+4.  Does the site use customer groups (i.e., retail, wholesale or VIP)?
     
 
 &nbsp;

@@ -33,23 +33,26 @@ const clientMetaModules = import.meta.glob("../content/clients/*/meta.ts", {
 // Decks are single markdown files (Marp format)
 const deckModules = import.meta.glob("../content/clients/*/decks/*.md", {
   eager: true,
-  as: "raw",
+  query: "?raw",
+  import: "default",
 });
 
 const requirementModules = import.meta.glob(
   "../content/clients/*/requirements/**/*.md",
-  { eager: true, as: "raw" }
+  { eager: true, query: "?raw", import: "default" }
 );
 
 // Notes are markdown files for meeting notes and general reference material
 const noteModules = import.meta.glob("../content/clients/*/notes/**/*.md", {
   eager: true,
-  as: "raw",
+  query: "?raw",
+  import: "default",
 });
 
 const siteProfileModules = import.meta.glob("../content/clients/*/{site-profile,action-items}.md", {
   eager: true,
-  as: "raw",
+  query: "?raw",
+  import: "default",
 });
 
 registerOriginals(siteProfileModules);
@@ -214,10 +217,13 @@ function discoverRequirements(): RequirementGroup[] {
     }
   }
 
-  return Array.from(groupMap.values()).sort(
-    (a, b) =>
-      a.clientSlug.localeCompare(b.clientSlug) || a.slug.localeCompare(b.slug)
-  );
+  return Array.from(groupMap.values()).sort((a, b) => {
+    const byClient = a.clientSlug.localeCompare(b.clientSlug);
+    if (byClient) return byClient;
+    if (a.slug === "features-list") return -1;
+    if (b.slug === "features-list") return 1;
+    return a.slug.localeCompare(b.slug);
+  });
 }
 
 export const requirementGroups: RequirementGroup[] = discoverRequirements();
