@@ -13,7 +13,7 @@ import {
   getUserDeckSlideCount,
   getUserDeckName,
 } from "./deckStorage";
-import { loadDocOverride } from "./docStorage";
+import { listHiddenDocs, loadDocOverride } from "./docStorage";
 import {
   fileSyncEnabled,
   getCurrentRaw,
@@ -333,7 +333,16 @@ export function getDecksForClient(clientSlug: string): Deck[] {
 export function getRequirementGroupsForClient(
   clientSlug: string
 ): RequirementGroup[] {
-  return requirementGroups.filter((g) => g.clientSlug === clientSlug);
+  return requirementGroups
+    .filter((g) => g.clientSlug === clientSlug)
+    .map((g) => ({
+      ...g,
+      docs: g.docs.filter(
+        (d) =>
+          !listHiddenDocs("requirement", clientSlug, g.slug).includes(d.slug) &&
+          getCurrentRaw(resolveDocPath("requirement", clientSlug, g.slug, d.slug)) !== undefined
+      ),
+    }));
 }
 
 export function getPocsForClient(clientSlug: string): Poc[] {

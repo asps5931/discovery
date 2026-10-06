@@ -1,4 +1,4 @@
-import { stripFrontmatter } from "./frontmatter";
+import { getFrontmatterField, stripFrontmatter } from "./frontmatter";
 
 export type ActionItem = { id: string; text: string; done: boolean };
 
@@ -10,6 +10,10 @@ export function parseActionItems(markdown: string): ActionItem[] {
     .map((line) => line.match(TASK_LINE))
     .filter((m): m is RegExpMatchArray => !!m)
     .map((m, i) => ({ id: `${i}-${m[2]}`, text: m[2].trim(), done: m[1] !== " " }));
+}
+
+export function isTodoList(markdown: string): boolean {
+  return getFrontmatterField(markdown, "type") === "todo";
 }
 
 export function serializeActionItems(items: ActionItem[]): string {

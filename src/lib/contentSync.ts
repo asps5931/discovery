@@ -6,6 +6,8 @@
 
 export const fileSyncEnabled = import.meta.env.DEV;
 
+export const CONTENT_CHANGED_EVENT = "discovery-content-changed";
+
 const ENDPOINT = "/__content";
 
 /** Raw file contents as bundled at page load, keyed by `clients/...` path. */
@@ -106,5 +108,6 @@ export function writeContentFile(relPath: string, content: string): Promise<bool
 
 export function deleteContentFile(relPath: string): Promise<boolean> {
   sessionWrites.set(relPath, null);
+  window.dispatchEvent(new Event(CONTENT_CHANGED_EVENT));
   return enqueue(relPath, () => send({ action: "delete", path: relPath }));
 }

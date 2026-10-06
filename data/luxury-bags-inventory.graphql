@@ -1,0 +1,5 @@
+mutation call($input: InventorySetQuantitiesInput!, $idempotencyKey: String!) {
+  inventorySetQuantities(input: $input) @idempotent(key: $idempotencyKey) {
+    userErrors { field message }
+  }
+}

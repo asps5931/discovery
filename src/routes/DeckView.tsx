@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ChevronRight, Play, Pencil, Trash2 } from "lucide-react";
+import { ConfirmButton } from "../components/ConfirmButton";
 import {
   getClient,
   getOriginalDeckMarkdown,
@@ -88,7 +89,6 @@ export function DeckView() {
 
   const handleDelete = useCallback(() => {
     if (!clientSlug || !deckSlug || !userCreated) return;
-    if (!window.confirm("Delete this deck? This cannot be undone.")) return;
     deleteUserDeck(clientSlug, deckSlug);
     navigate(`/${clientSlug}`);
   }, [clientSlug, deckSlug, userCreated, navigate]);
@@ -177,12 +177,13 @@ export function DeckView() {
           </div>
           <div className="flex items-center gap-2">
             {userCreated && (
-              <button
-                onClick={handleDelete}
+              <ConfirmButton
+                message="Delete this deck? This cannot be undone."
+                onConfirm={handleDelete}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg border border-ink-600 text-ink-200 text-sm font-medium hover:bg-ink-800 hover:text-red-400 transition-colors"
               >
                 <Trash2 className="h-4 w-4" /> Delete
-              </button>
+              </ConfirmButton>
             )}
             <button
               onClick={() => setEditMode(true)}

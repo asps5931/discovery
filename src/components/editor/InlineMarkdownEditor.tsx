@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight";
+import { common, createLowlight } from "lowlight";
 import Link from "@tiptap/extension-link";
 import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -10,6 +12,7 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import Image from "@tiptap/extension-image";
 import type { EditorView } from "@tiptap/pm/view";
+import { ConfirmButton } from "../ConfirmButton";
 import {
   Bold,
   Italic,
@@ -34,6 +37,7 @@ import { imageFileToDataUrl, imageFilesFrom } from "../../lib/imageData";
 import { stripFrontmatter } from "../../lib/frontmatter";
 
 const TOOLBAR_FALLBACK_H = 42;
+const lowlight = createLowlight(common);
 
 function insertImageFiles(view: EditorView, files: File[], pos?: number) {
   const imageType = view.state.schema.nodes.image;
@@ -87,9 +91,11 @@ export function InlineMarkdownEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4] },
+        codeBlock: false,
         // Would re-add an empty paragraph at the end, which now persists as a blank line.
         trailingNode: false,
       }),
+      CodeBlockLowlight.configure({ lowlight }),
       Underline,
       Link.configure({ openOnClick: false }),
       Placeholder.configure({ placeholder: "Start writing…" }),
@@ -426,37 +432,37 @@ function ToolbarButtons({
           >
             <TableRowsSplit className="h-4 w-4" />
           </button>
-          <button
-            type="button"
+          <ConfirmButton
             className={btn(false)}
-            onClick={() => editor.chain().focus().deleteColumn().run()}
-            aria-label="Delete column"
+            message="Delete this column?"
+            onConfirm={() => editor.chain().focus().deleteColumn().run()}
+            ariaLabel="Delete column"
             title="Delete column"
           >
             <span className="text-[11px] font-semibold tabular-nums leading-none px-0.5">
               −col
             </span>
-          </button>
-          <button
-            type="button"
+          </ConfirmButton>
+          <ConfirmButton
             className={btn(false)}
-            onClick={() => editor.chain().focus().deleteRow().run()}
-            aria-label="Delete row"
+            message="Delete this row?"
+            onConfirm={() => editor.chain().focus().deleteRow().run()}
+            ariaLabel="Delete row"
             title="Delete row"
           >
             <span className="text-[11px] font-semibold tabular-nums leading-none px-0.5">
               −row
             </span>
-          </button>
-          <button
-            type="button"
+          </ConfirmButton>
+          <ConfirmButton
             className={btn(false)}
-            onClick={() => editor.chain().focus().deleteTable().run()}
-            aria-label="Delete table"
+            message="Delete this table?"
+            onConfirm={() => editor.chain().focus().deleteTable().run()}
+            ariaLabel="Delete table"
             title="Delete table"
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </ConfirmButton>
         </>
       )}
       <span className="ml-auto text-[11px] text-ink-500 px-2">

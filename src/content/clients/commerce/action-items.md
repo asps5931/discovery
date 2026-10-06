@@ -1,4 +1,6 @@
 - [ ] Retrieve prod site URL
-- [ ] Get added to PS shopify partner portal
+- [x] Get added to PS shopify partner portal
 - [ ] Get access to tapestry jira and confluence
+- [ ] Get current site domains
 - [ ] Diagram current ecommerce infrastructure
+- [x] Log time

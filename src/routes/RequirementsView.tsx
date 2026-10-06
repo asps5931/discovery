@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
-import { ChevronRight, Plus } from "lucide-react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ChevronRight, Plus, Trash2 } from "lucide-react";
 import {
   canCreateRequirements,
   createRequirement,
@@ -12,7 +12,9 @@ import {
   requirementKey,
 } from "../lib/discovery";
 import type { RequirementDoc } from "../lib/types";
-import { saveDocOverride } from "../lib/docStorage";
+import { clearDocOverride, hideDoc, saveDocOverride } from "../lib/docStorage";
+import { CONTENT_CHANGED_EVENT, deleteContentFile, fileSyncEnabled, resolveDocPath } from "../lib/contentSync";
+import { ConfirmButton } from "../components/ConfirmButton";
 import { TableOfContents, useHeadingToc } from "../components/docs/TableOfContents";
 import { InlineMarkdownEditor } from "../components/editor/InlineMarkdownEditor";
 import {
@@ -126,15 +128,28 @@ function RequirementTitle({ doc }: { doc: RequirementDoc }) {
   );
 }
 
+function removeRequirement(clientSlug: string, groupSlug: string, docSlug: string): void {
+  if (fileSyncEnabled) {
+    void deleteContentFile(resolveDocPath("requirement", clientSlug, groupSlug, docSlug));
+  } else {
+    hideDoc("requirement", clientSlug, groupSlug, docSlug);
+  }
+  clearDocOverride("requirement", clientSlug, groupSlug, docSlug);
+  window.dispatchEvent(new Event(CONTENT_CHANGED_EVENT));
+}
+
 export function RequirementsView() {
   const { clientSlug, groupSlug, docSlug } = useParams<{
     clientSlug: string;
     groupSlug?: string;
     docSlug?: string;
   }>();
+  const [refresh, setRefresh] = useState(0);
 
   const client = clientSlug ? getClient(clientSlug) : undefined;
   const groups = clientSlug ? getRequirementGroupsForClient(clientSlug) : [];
+  void refresh;
+  const onDeleted = () => setRefresh((n) => n + 1);
 
   if (!client) {
     return (
@@ -152,6 +167,7 @@ export function RequirementsView() {
         groupSlug={groupSlug}
         docSlug={docSlug}
         groups={groups}
+        onDeleted={onDeleted}
       />
     );
   }
@@ -171,6 +187,7 @@ export function RequirementsView() {
         clientSlug={client.slug}
         groupSlug={groupSlug}
         groups={groups}
+        onDeleted={onDeleted}
       />
     );
   }
@@ -180,6 +197,7 @@ export function RequirementsView() {
       clientName={client.name}
       clientSlug={client.slug}
       groups={groups}
+      onDeleted={onDeleted}
     />
   );
 }
@@ -188,13 +206,16 @@ function AllRequirementsView({
   clientName,
   clientSlug,
   groups,
+  onDeleted,
 }: {
   clientName: string;
   clientSlug: string;
   groups: ReturnType<typeof getRequirementGroupsForClient>;
+  onDeleted: () => void;
 }) {
   useTitlesVersion();
-  const allDocs = groups.flatMap((g) => g.docs);
+  const requirementGroups = groups.filter((g) => g.slug !== FEATURES_LIST_GROUP);
+  const allDocs = requirementGroups.flatMap((g) => g.docs);
   const tocItems = allDocs.map((doc) => ({
     id: requirementAnchorId(doc),
     label: `${requirementKey(doc)} ${getRequirementTitle(doc)}`,
@@ -218,7 +239,7 @@ function AllRequirementsView({
         <h1 className="text-2xl font-bold text-ink-50 mb-2">All Requirements</h1>
         <p className="text-ink-400 text-sm mb-10">
           {allDocs.length} {allDocs.length === 1 ? "document" : "documents"} across{" "}
-          {groups.length} {groups.length === 1 ? "group" : "groups"}.
+          {requirementGroups.length} {requirementGroups.length === 1 ? "group" : "groups"}.
           Double-click any document body to edit inline.
         </p>
 
@@ -229,7 +250,7 @@ function AllRequirementsView({
           >
             All ({allDocs.length})
           </Link>
-          {groups.map((g) => (
+          {requirementGroups.map((g) => (
             <Link
               key={g.slug}
               to={`/${clientSlug}/requirements/${g.slug}`}
@@ -243,22 +264,20 @@ function AllRequirementsView({
         <TableOfContents items={tocItems} title="Requirements" />
 
         <div className="space-y-8">
-          {groups.map((group) => (
+          {requirementGroups.map((group) => (
             <section key={group.slug} className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm uppercase tracking-wider text-ink-400 font-semibold">
                   {group.name}
                 </h2>
-                {group.slug !== FEATURES_LIST_GROUP && (
-                  <NewRequirement
-                    clientSlug={clientSlug}
-                    groupSlug={group.slug}
-                    groupName={group.name}
-                    compact
-                  />
-                )}
+                <NewRequirement
+                  clientSlug={clientSlug}
+                  groupSlug={group.slug}
+                  groupName={group.name}
+                  compact
+                />
               </div>
-              {(group.slug === FEATURES_LIST_GROUP ? group.docs.slice(0, 1) : group.docs).map((doc) => (
+              {group.docs.map((doc) => (
                 <RequirementDocSection
                   key={doc.id}
                   clientSlug={clientSlug}
@@ -266,6 +285,7 @@ function AllRequirementsView({
                   docSlug={doc.slug}
                   doc={doc}
                   anchorId={requirementAnchorId(doc)}
+                  onDeleted={onDeleted}
                 />
               ))}
             </section>
@@ -281,11 +301,13 @@ function RequirementGroupView({
   clientSlug,
   groupSlug,
   groups,
+  onDeleted,
 }: {
   clientName: string;
   clientSlug: string;
   groupSlug: string;
   groups: ReturnType<typeof getRequirementGroupsForClient>;
+  onDeleted: () => void;
 }) {
   const group = groups.find((g) => g.slug === groupSlug)!;
   const groupName = group.name;
@@ -300,7 +322,8 @@ function RequirementGroupView({
       />
     );
   }
-  const allCount = groups.reduce((n, g) => n + g.docs.length, 0);
+  const listedGroups = groups.filter((g) => g.slug !== FEATURES_LIST_GROUP);
+  const allCount = listedGroups.reduce((n, g) => n + g.docs.length, 0);
   const tocItems = group.docs.map((doc) => ({
     id: requirementAnchorId(doc),
     label: `${requirementKey(doc)} ${getRequirementTitle(doc)}`,
@@ -344,7 +367,7 @@ function RequirementGroupView({
           >
             All ({allCount})
           </Link>
-          {groups.map((g) => (
+          {listedGroups.map((g) => (
             <Link
               key={g.slug}
               to={`/${clientSlug}/requirements/${g.slug}`}
@@ -370,6 +393,7 @@ function RequirementGroupView({
               docSlug={doc.slug}
               doc={doc}
               anchorId={requirementAnchorId(doc)}
+              onDeleted={onDeleted}
             />
           ))}
         </div>
@@ -384,12 +408,14 @@ function RequirementDocSection({
   docSlug,
   doc,
   anchorId,
+  onDeleted,
 }: {
   clientSlug: string;
   groupSlug: string;
   docSlug: string;
   doc: RequirementDoc;
   anchorId: string;
+  onDeleted: () => void;
 }) {
   const original = getRequirementMarkdown(clientSlug, groupSlug, docSlug) ?? "";
   const [markdown, setMarkdown] = useState(original);
@@ -411,6 +437,18 @@ function RequirementDocSection({
         <h2 className="text-lg font-semibold text-ink-50 min-w-0 flex-1">
           <RequirementTitle doc={doc} />
         </h2>
+        {groupSlug !== FEATURES_LIST_GROUP && (
+          <ConfirmButton
+            message={`Delete "${requirementKey(doc)} ${getRequirementTitle(doc)}"?`}
+            onConfirm={() => {
+              removeRequirement(clientSlug, groupSlug, docSlug);
+              onDeleted();
+            }}
+            className="shrink-0 flex items-center gap-1 text-xs text-ink-400 hover:text-red-400 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </ConfirmButton>
+        )}
         <Link
           to={`/${clientSlug}/requirements/${groupSlug}/${docSlug}`}
           className="shrink-0 text-xs text-accent-700 dark:text-accent-400 hover:text-accent-800 dark:hover:text-accent-300 transition-colors"
@@ -437,13 +475,16 @@ function RequirementDocView({
   groupSlug,
   docSlug,
   groups,
+  onDeleted,
 }: {
   clientName: string;
   clientSlug: string;
   groupSlug: string;
   docSlug: string;
   groups: ReturnType<typeof getRequirementGroupsForClient>;
+  onDeleted: () => void;
 }) {
+  const navigate = useNavigate();
   const contentRef = useRef<HTMLDivElement>(null);
   const group = groups.find((g) => g.slug === groupSlug);
   const doc = group?.docs.find((d) => d.slug === docSlug);
@@ -513,12 +554,27 @@ function RequirementDocView({
           ← Back to {group!.name}
         </Link>
 
-        <h1 className="text-2xl font-bold text-ink-50 mb-6 flex items-baseline gap-3">
-          <span className="shrink-0 font-mono text-sm font-medium text-accent-700 dark:text-accent-400">
-            {requirementKey(doc)}
-          </span>
-          <EditableRequirementTitle doc={doc} className="flex-1" />
-        </h1>
+        <div className="flex items-start justify-between gap-3 mb-6">
+          <h1 className="text-2xl font-bold text-ink-50 flex items-baseline gap-3 min-w-0 flex-1">
+            <span className="shrink-0 font-mono text-sm font-medium text-accent-700 dark:text-accent-400">
+              {requirementKey(doc)}
+            </span>
+            <EditableRequirementTitle doc={doc} className="flex-1" />
+          </h1>
+          {groupSlug !== FEATURES_LIST_GROUP && (
+            <ConfirmButton
+              message={`Delete "${requirementKey(doc)} ${getRequirementTitle(doc)}"?`}
+              onConfirm={() => {
+                removeRequirement(clientSlug, groupSlug, docSlug);
+                onDeleted();
+                navigate(`/${clientSlug}/requirements/${groupSlug}`);
+              }}
+              className="shrink-0 flex items-center gap-1 text-xs text-ink-400 hover:text-red-400 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete
+            </ConfirmButton>
+          )}
+        </div>
 
         {groupSlug === FEATURES_LIST_GROUP ? (
           <FeaturesList clientSlug={clientSlug} groupSlug={groupSlug} docSlug={docSlug} />

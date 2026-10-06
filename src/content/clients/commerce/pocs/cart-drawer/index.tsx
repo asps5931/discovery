@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ShoppingCart, X, Plus, Minus, Trash2, Check } from "lucide-react";
+import { ConfirmButton } from "../../../../components/ConfirmButton";
 
 interface Product {
   id: string;
@@ -227,13 +228,15 @@ export default function CartDrawerPoc() {
                         <span className="text-sm font-semibold text-gray-900">
                           ${(line.product.price * line.quantity).toFixed(2)}
                         </span>
-                        <button
-                          onClick={() => removeLine(line.product.id)}
+                        <ConfirmButton
+                          message={`Remove ${line.product.name}?`}
+                          confirmLabel="Remove"
+                          onConfirm={() => removeLine(line.product.id)}
                           className="p-1 rounded hover:bg-gray-100 transition-colors"
-                          aria-label="Remove item"
+                          ariaLabel="Remove item"
                         >
                           <Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-red-500" />
-                        </button>
+                        </ConfirmButton>
                       </div>
                     </div>
                   ))}

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ChevronRight,
@@ -45,6 +45,10 @@ import {
 } from "../components/docs/EditableTitle";
 import { TableOfContents, useHeadingToc } from "../components/docs/TableOfContents";
 import { InlineMarkdownEditor } from "../components/editor/InlineMarkdownEditor";
+import { ConfirmButton } from "../components/ConfirmButton";
+import { ActionItemList } from "../components/ActionItemList";
+import { isTodoList, parseActionItems, serializeActionItems, type ActionItem } from "../lib/actionItems";
+import { setFrontmatterField } from "../lib/frontmatter";
 
 export function NotesView() {
   const { clientSlug, groupSlug, docSlug } = useParams<{
@@ -112,12 +116,19 @@ function NoteDocView({
   const { clientSlug, group: groupSlug, slug } = note;
   const contentRef = useRef<HTMLDivElement>(null);
   const [markdown, setMarkdown] = useState(getNoteMarkdown(clientSlug, groupSlug, slug) ?? "");
+  const [todo] = useState(() => isTodoList(markdown));
+  const [tags, setTags] = useState(() => parseTagsFromMarkdown(markdown));
   const tocItems = useHeadingToc(contentRef, [markdown, slug]);
   useTitlesVersion();
 
   const handleSave = (next: string) => {
     saveDocOverride("note", clientSlug, groupSlug, slug, next);
     setMarkdown(next);
+  };
+
+  const handleTags = (next: string[]) => {
+    setTags(next);
+    persistNoteTags(clientSlug, groupSlug, slug, next);
   };
 
   return (
@@ -149,14 +160,22 @@ function NoteDocView({
           ← Back to {groupName}
         </Link>
 
-        <h1 className="text-2xl font-bold text-ink-50 mb-6">
+        <h1 className="text-2xl font-bold text-ink-50 mb-4">
           <EditableRequirementTitle doc={note} kind="note" className="w-full" />
         </h1>
 
-        <TableOfContents items={tocItems} title="On this page" />
+        <div className="mb-6">
+          <TagEditor tags={tags} onChange={handleTags} />
+        </div>
+
+        {todo ? null : <TableOfContents items={tocItems} title="On this page" />}
 
         <div ref={contentRef}>
-          <InlineMarkdownEditor value={markdown} onSave={handleSave} />
+          {todo ? (
+            <TodoEditor markdown={markdown} onSave={handleSave} />
+          ) : (
+            <InlineMarkdownEditor value={markdown} onSave={handleSave} />
+          )}
         </div>
       </div>
     </div>
@@ -204,6 +223,10 @@ function NoteGroupView({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [userNotes, fileNotes]);
 
+  useEffect(() => {
+    if (activeTag && !allTags.includes(activeTag)) setActiveTag(null);
+  }, [activeTag, allTags]);
+
   const visibleUserNotes = activeTag
     ? userNotes.filter((n) => n.tags.includes(activeTag))
     : userNotes;
@@ -229,8 +252,7 @@ function NoteGroupView({
     [visibleUserNotes, visibleFileNotes, titlesVersion]
   );
 
-  const handleDeleteFile = (slug: string, title: string) => {
-    if (!window.confirm(`Delete "${title}"?`)) return;
+  const handleDeleteFile = (slug: string) => {
     if (fileSyncEnabled) {
       void deleteContentFile(resolveDocPath("note", clientSlug, groupSlug, slug));
     } else {
@@ -240,7 +262,6 @@ function NoteGroupView({
   };
 
   const handleDeleteUser = (id: string) => {
-    if (!window.confirm(`Delete this ${noun}?`)) return;
     deleteUserNote(clientSlug, id);
     setRefresh((r) => r + 1);
   };
@@ -369,8 +390,14 @@ function NoteGroupView({
               title={n.title}
               content={n.content}
               tags={n.tags}
+              onTagsChange={(tags) => {
+                updateUserNote(clientSlug, n.id, { tags });
+                setRefresh((r) => r + 1);
+              }}
+              kind={n.kind}
               date={n.createdAt}
               onDelete={() => handleDeleteUser(n.id)}
+              deleteMessage={`Delete "${n.title}"?`}
               onContentSaved={() => setRefresh((r) => r + 1)}
             />
           ))}
@@ -382,7 +409,12 @@ function NoteGroupView({
               groupSlug={groupSlug}
               note={n}
               tags={n.tags}
-              onDelete={() => handleDeleteFile(n.slug, getRequirementTitle(n, "note"))}
+              onTagsChange={(tags) => {
+                persistNoteTags(clientSlug, groupSlug, n.slug, tags);
+                setRefresh((r) => r + 1);
+              }}
+              onDelete={() => handleDeleteFile(n.slug)}
+              deleteMessage={`Delete "${getRequirementTitle(n, "note")}"?`}
             />
           ))}
         </div>
@@ -391,18 +423,99 @@ function NoteGroupView({
   );
 }
 
-function TagChips({ tags }: { tags: string[] }) {
-  if (tags.length === 0) return null;
+function persistNoteTags(clientSlug: string, groupSlug: string, slug: string, tags: string[]) {
+  const path = resolveDocPath("note", clientSlug, groupSlug, slug);
+  const raw = getNoteMarkdown(clientSlug, groupSlug, slug) ?? "";
+  const next = setFrontmatterField(raw, "tags", tags.length ? tags.join(", ") : null);
+  if (fileSyncEnabled) void writeContentFile(path, next);
+  else void saveDocOverride("note", clientSlug, groupSlug, slug, next);
+}
+
+function mergeTags(current: string[], raw: string): string[] {
+  const seen = new Set(current.map((tag) => tag.toLowerCase()));
+  const next = [...current];
+  for (const tag of parseTagsInput(raw)) {
+    if (seen.has(tag)) continue;
+    seen.add(tag);
+    next.push(tag);
+  }
+  return next;
+}
+
+function TagEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
+  const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (adding) inputRef.current?.focus();
+  }, [adding]);
+
+  const add = (raw: string) => {
+    const next = mergeTags(tags, raw);
+    setDraft("");
+    setAdding(false);
+    if (next.length !== tags.length) onChange(next);
+  };
+
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       {tags.map((tag) => (
         <span
           key={tag}
-          className="text-xs text-accent-300 bg-accent-500/10 border border-accent-500/30 px-2 py-0.5 rounded-full"
+          className="inline-flex items-center gap-1 text-xs text-accent-300 bg-accent-500/10 border border-accent-500/30 pl-2 pr-1 py-0.5 rounded-full"
         >
           {tag}
+          <button
+            type="button"
+            onClick={() => onChange(tags.filter((item) => item !== tag))}
+            className="text-accent-300 hover:text-ink-50"
+            aria-label={`Remove ${tag}`}
+          >
+            <X className="h-3 w-3" />
+          </button>
         </span>
       ))}
+      {adding ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            add(draft);
+          }}
+          className="flex items-center gap-1.5"
+        >
+          <input
+            ref={inputRef}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setDraft("");
+                setAdding(false);
+              }
+            }}
+            placeholder="Add a tag"
+            aria-label="Add a tag"
+            className="w-28 px-2 py-0.5 bg-ink-950 text-ink-100 text-xs rounded-full border border-ink-700 focus:outline-none focus:ring-1 focus:ring-accent-500"
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim()}
+            className="text-xs text-ink-300 hover:text-ink-50 disabled:opacity-40"
+          >
+            Add
+          </button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="inline-flex items-center justify-center h-6 w-6 rounded-full border border-ink-700 text-ink-300 hover:text-ink-50"
+          aria-label="Add a tag"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -413,18 +526,23 @@ function FileNoteCard({
   groupSlug,
   note,
   tags,
+  onTagsChange,
   onDelete,
+  deleteMessage,
 }: {
   id: string;
   clientSlug: string;
   groupSlug: string;
   note: { clientSlug: string; group: string; slug: string; name: string };
   tags: string[];
+  onTagsChange: (tags: string[]) => void;
   onDelete: () => void;
+  deleteMessage: string;
 }) {
   const slug = note.slug;
   const initial = getNoteMarkdown(clientSlug, groupSlug, slug) ?? "";
   const [markdown, setMarkdown] = useState(initial);
+  const todo = isTodoList(initial);
 
   const handleSave = (next: string) => {
     saveDocOverride("note", clientSlug, groupSlug, slug, next);
@@ -443,12 +561,13 @@ function FileNoteCard({
             <EditableRequirementTitle doc={note} kind="note" />
           </h2>
         </div>
-        <button
-          onClick={onDelete}
+        <ConfirmButton
+          message={deleteMessage}
+          onConfirm={onDelete}
           className="flex items-center gap-1 text-xs text-ink-400 hover:text-red-400 transition-colors"
         >
           <Trash2 className="h-3.5 w-3.5" /> Delete
-        </button>
+        </ConfirmButton>
         <Link
           to={`/${clientSlug}/references/${groupSlug}/${slug}`}
           className="shrink-0 ml-4 text-xs text-accent-700 dark:text-accent-400 hover:text-accent-800 dark:hover:text-accent-300 transition-colors"
@@ -457,10 +576,14 @@ function FileNoteCard({
         </Link>
       </div>
       <div className="px-6 py-3 border-b border-ink-700">
-        <TagChips tags={tags} />
+        <TagEditor tags={tags} onChange={onTagsChange} />
       </div>
       <div className="px-4 py-4">
-        <InlineMarkdownEditor value={markdown} onSave={handleSave} />
+        {todo ? (
+          <TodoEditor markdown={markdown} onSave={handleSave} />
+        ) : (
+          <InlineMarkdownEditor value={markdown} onSave={handleSave} />
+        )}
       </div>
     </div>
   );
@@ -473,8 +596,11 @@ function UserNoteCard({
   title,
   content,
   tags,
+  onTagsChange,
+  kind,
   date,
   onDelete,
+  deleteMessage,
   onContentSaved,
 }: {
   id: string;
@@ -483,11 +609,15 @@ function UserNoteCard({
   title: string;
   content: string;
   tags: string[];
+  onTagsChange: (tags: string[]) => void;
+  kind?: "todo";
   date: string;
   onDelete: () => void;
+  deleteMessage: string;
   onContentSaved: () => void;
 }) {
   const [markdown, setMarkdown] = useState(content);
+  const todo = kind === "todo" || isTodoList(content);
   const formattedDate = new Date(date).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -511,20 +641,46 @@ function UserNoteCard({
           <h2 className="text-lg font-semibold text-ink-50">{title}</h2>
           <span className="text-xs text-ink-400">{formattedDate}</span>
         </div>
-        <button
-          onClick={onDelete}
+        <ConfirmButton
+          message={deleteMessage}
+          onConfirm={onDelete}
           className="flex items-center gap-1 text-xs text-ink-400 hover:text-red-400 transition-colors"
         >
           <Trash2 className="h-3.5 w-3.5" /> Delete
-        </button>
+        </ConfirmButton>
       </div>
       <div className="px-6 py-3 border-b border-ink-700">
-        <TagChips tags={tags} />
+        <TagEditor tags={tags} onChange={onTagsChange} />
       </div>
       <div className="px-4 py-4">
-        <InlineMarkdownEditor value={markdown} onSave={handleSave} />
+        {todo ? (
+          <TodoEditor markdown={markdown} onSave={handleSave} />
+        ) : (
+          <InlineMarkdownEditor value={markdown} onSave={handleSave} />
+        )}
       </div>
     </div>
+  );
+}
+
+function TodoEditor({
+  markdown,
+  onSave,
+}: {
+  markdown: string;
+  onSave: (next: string) => void;
+}) {
+  const [items, setItems] = useState<ActionItem[]>(() => parseActionItems(markdown));
+  return (
+    <ActionItemList
+      items={items}
+      onChange={(next) => {
+        setItems(next);
+        onSave(serializeActionItems(next));
+      }}
+      placeholder="Add a to-do…"
+      emptyLabel="No to-dos yet."
+    />
   );
 }
 
@@ -552,7 +708,11 @@ function NoteForm({
   const [title, setTitle] = useState(existing?.title ?? "");
   const [content, setContent] = useState(existing?.content ?? "");
   const [tagsInput, setTagsInput] = useState((existing?.tags ?? []).join(", "));
+  const [kind, setKind] = useState<"doc" | "todo">(
+    noun === "document" && existing?.kind === "todo" ? "todo" : "doc"
+  );
   const [error, setError] = useState("");
+  const todo = noun === "document" && kind === "todo";
 
   const handleSave = () => {
     if (!title.trim()) {
@@ -560,6 +720,7 @@ function NoteForm({
       return;
     }
     const tags = parseTagsInput(tagsInput);
+    const body = todo ? "" : content.trim();
 
     if (fileSyncEnabled) {
       const base = slugify(title);
@@ -569,25 +730,28 @@ function NoteForm({
       }
       const fm = [`title: ${JSON.stringify(title.trim())}`];
       if (tags.length > 0) fm.push(`tags: ${tags.join(", ")}`);
+      if (todo) fm.push('type: "todo"');
       void writeContentFile(
         resolveDocPath("note", clientSlug, groupSlug, slug),
-        `---\n${fm.join("\n")}\n---\n\n${content.trim()}\n`
+        `---\n${fm.join("\n")}\n---\n\n${body}\n`
       );
       clearNoteDraft(clientSlug, groupSlug);
       onSaved();
       return;
     }
 
-    if (!content.trim()) {
+    if (!todo && !body) {
       setError("Please add some notes before saving.");
       return;
     }
 
     const slug = slugify(title);
     const filename = `${slug}.md`;
-    const frontmatter =
-      tags.length > 0 ? `---\ntags: ${tags.join(", ")}\n---\n\n` : "";
-    const markdown = `${frontmatter}# ${title.trim()}\n\n${content.trim()}\n`;
+    const fm = [];
+    if (tags.length > 0) fm.push(`tags: ${tags.join(", ")}`);
+    if (todo) fm.push('type: "todo"');
+    const frontmatter = fm.length > 0 ? `---\n${fm.join("\n")}\n---\n\n` : "";
+    const markdown = `${frontmatter}# ${title.trim()}\n\n${body}\n`;
 
     downloadMarkdownFile(filename, markdown);
 
@@ -595,9 +759,10 @@ function NoteForm({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       group: groupSlug,
       title: title.trim(),
-      content: content.trim(),
+      content: body,
       tags,
       createdAt: new Date().toISOString(),
+      kind: todo ? "todo" : undefined,
     };
     addUserNote(clientSlug, note);
     clearNoteDraft(clientSlug, groupSlug);
@@ -610,6 +775,7 @@ function NoteForm({
       title,
       content,
       tags: parseTagsInput(tagsInput),
+      kind: todo ? "todo" : undefined,
     });
     onClose();
   };
@@ -634,6 +800,29 @@ function NoteForm({
         className="w-full px-3 py-2 mb-4 bg-ink-950 text-ink-100 text-sm rounded-lg border border-ink-700 focus:outline-none focus:ring-1 focus:ring-accent-500"
       />
 
+      {noun === "document" && (
+        <div className="flex gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => setKind("doc")}
+            className={`px-3 py-1.5 rounded-full text-sm ${
+              kind === "doc" ? "bg-accent-500 text-white" : "bg-ink-800 text-ink-300"
+            }`}
+          >
+            Document
+          </button>
+          <button
+            type="button"
+            onClick={() => setKind("todo")}
+            className={`px-3 py-1.5 rounded-full text-sm ${
+              kind === "todo" ? "bg-accent-500 text-white" : "bg-ink-800 text-ink-300"
+            }`}
+          >
+            To-do list
+          </button>
+        </div>
+      )}
+
       <label className="block text-sm text-ink-300 mb-1.5">Tags</label>
       <input
         value={tagsInput}
@@ -645,14 +834,22 @@ function NoteForm({
         Separate tags with commas. Use them to find related {noun}s later.
       </p>
 
-      <label className="block text-sm text-ink-300 mb-1.5">Content</label>
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder="Write in markdown..."
-        spellCheck={false}
-        className="w-full min-h-[180px] px-3 py-2 mb-4 bg-ink-950 text-ink-100 font-mono text-sm leading-relaxed rounded-lg border border-ink-700 focus:outline-none focus:ring-1 focus:ring-accent-500 resize-y"
-      />
+      {todo ? (
+        <p className="text-xs text-ink-500 mb-4">
+          After you save, add, check off, and reorder items the same way as Action Items.
+        </p>
+      ) : (
+        <>
+          <label className="block text-sm text-ink-300 mb-1.5">Content</label>
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Write in markdown..."
+            spellCheck={false}
+            className="w-full min-h-[180px] px-3 py-2 mb-4 bg-ink-950 text-ink-100 font-mono text-sm leading-relaxed rounded-lg border border-ink-700 focus:outline-none focus:ring-1 focus:ring-accent-500 resize-y"
+          />
+        </>
+      )}
 
       {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
 

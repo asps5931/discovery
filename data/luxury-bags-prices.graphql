@@ -1,0 +1,6 @@
+mutation call($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+  productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+    product { id }
+    userErrors { field message }
+  }
+}

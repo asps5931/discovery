@@ -72,6 +72,30 @@ export function saveDocOverride(
   });
 }
 
+function hiddenKey(kind: DocKind, clientSlug: string, groupSlug: string): string {
+  return `client-portal:hidden-doc:${kind}:${clientSlug}/${groupSlug}`;
+}
+
+export function listHiddenDocs(kind: DocKind, clientSlug: string, groupSlug: string): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(hiddenKey(kind, clientSlug, groupSlug)) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((slug) => typeof slug === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Hides a bundled doc when the dev server can't delete the file. */
+export function hideDoc(kind: DocKind, clientSlug: string, groupSlug: string, docSlug: string): void {
+  const hidden = listHiddenDocs(kind, clientSlug, groupSlug);
+  if (!hidden.includes(docSlug)) hidden.push(docSlug);
+  try {
+    localStorage.setItem(hiddenKey(kind, clientSlug, groupSlug), JSON.stringify(hidden));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function clearDocOverride(
   kind: DocKind,
   clientSlug: string,

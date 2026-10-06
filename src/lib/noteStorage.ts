@@ -5,6 +5,7 @@ export interface UserNote {
   content: string;
   tags: string[];
   createdAt: string;
+  kind?: "todo";
 }
 
 export interface NoteDraft {
@@ -12,6 +13,7 @@ export interface NoteDraft {
   title: string;
   content: string;
   tags: string[];
+  kind?: "todo";
 }
 
 const NOTES_PREFIX = "client-portal:user-notes:";

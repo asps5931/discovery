@@ -9,6 +9,8 @@ import {
   ChevronDown,
   Store,
   ListChecks,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import {
   clients,
@@ -18,9 +20,11 @@ import {
   getNoteGroupsForClient,
 } from "../../lib/discovery";
 import { DECKS_CHANGED_EVENT } from "../../lib/deckStorage";
+import { CONTENT_CHANGED_EVENT } from "../../lib/contentSync";
 import { ThemeToggle } from "./ThemeToggle";
 
 const SECTION_STATE_KEY = "discovery-sidebar-sections";
+const COLLAPSED_KEY = "discovery-sidebar-collapsed";
 
 function loadSectionState(): Record<string, boolean> {
   try {
@@ -41,19 +45,30 @@ function saveSectionState(state: Record<string, boolean>) {
   }
 }
 
+function loadCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function Sidebar() {
   const location = useLocation();
   const [sectionOpen, setSectionOpen] = useState<Record<string, boolean>>(() =>
     loadSectionState()
   );
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
   const [deckTick, setDeckTick] = useState(0);
 
   useEffect(() => {
     const refresh = () => setDeckTick((t) => t + 1);
     window.addEventListener(DECKS_CHANGED_EVENT, refresh);
+    window.addEventListener(CONTENT_CHANGED_EVENT, refresh);
     window.addEventListener("storage", refresh);
     return () => {
       window.removeEventListener(DECKS_CHANGED_EVENT, refresh);
+      window.removeEventListener(CONTENT_CHANGED_EVENT, refresh);
       window.removeEventListener("storage", refresh);
     };
   }, []);
@@ -66,21 +81,58 @@ export function Sidebar() {
     });
   }, []);
 
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+
   return (
-    <aside className="w-60 flex-shrink-0 bg-ink-900 border-r border-ink-700 flex flex-col h-full overflow-y-auto">
-      <div className="px-4 py-4 border-b border-ink-700">
-        <Link
-          to="/"
-          className="flex items-center gap-2.5 text-ink-50 font-semibold text-base tracking-tight"
+    <aside
+      className={`${collapsed ? "w-12" : "w-60"} flex-shrink-0 bg-ink-900 border-r border-ink-700 flex flex-col h-full overflow-y-auto`}
+    >
+      <div
+        className={`border-b border-ink-700 flex items-center ${
+          collapsed ? "justify-center px-1.5 py-3" : "justify-between gap-2 px-4 py-4"
+        }`}
+      >
+        {!collapsed && (
+          <Link
+            to="/"
+            className="flex min-w-0 items-center gap-2.5 text-ink-50 font-semibold text-base tracking-tight"
+          >
+            <div className="h-7 w-7 rounded-md bg-accent-500 flex items-center justify-center shrink-0">
+              <FolderKanban className="h-4 w-4 text-white" />
+            </div>
+            <span className="truncate">Discovery</span>
+          </Link>
+        )}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-controls="sidebar-nav"
+          aria-label={collapsed ? "Open sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Open sidebar" : "Collapse sidebar"}
+          className="rounded-md p-1.5 text-ink-400 hover:bg-ink-800 hover:text-ink-50"
         >
-          <div className="h-7 w-7 rounded-md bg-accent-500 flex items-center justify-center shrink-0">
-            <FolderKanban className="h-4 w-4 text-white" />
-          </div>
-          Discovery
-        </Link>
+          {collapsed ? (
+            <PanelLeftOpen className="h-4 w-4" />
+          ) : (
+            <PanelLeftClose className="h-4 w-4" />
+          )}
+        </button>
       </div>
 
-      <nav className="flex-1 px-2 py-3 space-y-1">
+      {!collapsed && (
+      <>
+      <nav id="sidebar-nav" className="flex-1 px-2 py-3 space-y-1">
         {clients.length === 0 && (
           <div className="px-3 py-8 text-center text-sm text-ink-400">
             No clients yet.
@@ -164,7 +216,7 @@ export function Sidebar() {
                         slug: g.slug,
                         name: g.name,
                         path: `/${client.slug}/requirements/${g.slug}`,
-                        badge: `${g.docs.length}`,
+                        badge: g.slug === "features-list" ? undefined : `${g.docs.length}`,
                       }))}
                       location={location}
                       open={sectionOpen[`${client.slug}:requirements`] ?? true}
@@ -185,16 +237,18 @@ export function Sidebar() {
                               {
                                 slug: "headless",
                                 name: "Headless",
-                                path: "https://tulsa-set-fresh-shirts.tryhydrogen.dev/",
+                                path: "http://localhost:3100/",
                                 external: true,
                               },
                             ]
                           : []),
-                        ...clientPocs.map((p) => ({
-                          slug: p.slug,
-                          name: p.name,
-                          path: `/${client.slug}/pocs/${p.slug}`,
-                        })),
+                        ...clientPocs
+                          .filter((p) => p.slug !== "cart-drawer")
+                          .map((p) => ({
+                            slug: p.slug,
+                            name: p.name,
+                            path: `/${client.slug}/pocs/${p.slug}`,
+                          })),
                       ]}
                       location={location}
                       open={sectionOpen[`${client.slug}:pocs`] ?? true}
@@ -228,6 +282,8 @@ export function Sidebar() {
       <div className="border-t border-ink-700 p-2">
         <ThemeToggle />
       </div>
+      </>
+      )}
     </aside>
   );
 }

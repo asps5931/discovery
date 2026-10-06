@@ -114,6 +114,86 @@
   .prose-doc pre code {
     @apply bg-transparent text-ink-100 p-0;
   }
+  /* Inline-code color is more specific in dark mode; keep block text neutral. */
+  .dark .prose-doc pre code {
+    @apply text-ink-100;
+  }
+  .prose-doc .hljs-comment,
+  .prose-doc .hljs-quote {
+    color: #6b7280;
+  }
+  .prose-doc .hljs-keyword,
+  .prose-doc .hljs-selector-tag,
+  .prose-doc .hljs-built_in,
+  .prose-doc .hljs-type {
+    color: #6d28d9;
+  }
+  .prose-doc .hljs-string,
+  .prose-doc .hljs-regexp,
+  .prose-doc .hljs-addition {
+    color: #047857;
+  }
+  .prose-doc .hljs-number,
+  .prose-doc .hljs-literal,
+  .prose-doc .hljs-symbol,
+  .prose-doc .hljs-bullet {
+    color: #b45309;
+  }
+  .prose-doc .hljs-title,
+  .prose-doc .hljs-section,
+  .prose-doc .hljs-function {
+    color: #1d4ed8;
+  }
+  .prose-doc .hljs-attr,
+  .prose-doc .hljs-attribute,
+  .prose-doc .hljs-variable,
+  .prose-doc .hljs-template-variable,
+  .prose-doc .hljs-params,
+  .prose-doc .hljs-property {
+    color: #be185d;
+  }
+  .prose-doc .hljs-meta,
+  .prose-doc .hljs-meta .hljs-keyword {
+    color: #0f766e;
+  }
+  .dark .prose-doc .hljs-comment,
+  .dark .prose-doc .hljs-quote {
+    color: #9ca3af;
+  }
+  .dark .prose-doc .hljs-keyword,
+  .dark .prose-doc .hljs-selector-tag,
+  .dark .prose-doc .hljs-built_in,
+  .dark .prose-doc .hljs-type {
+    color: #c4b5fd;
+  }
+  .dark .prose-doc .hljs-string,
+  .dark .prose-doc .hljs-regexp,
+  .dark .prose-doc .hljs-addition {
+    color: #6ee7b7;
+  }
+  .dark .prose-doc .hljs-number,
+  .dark .prose-doc .hljs-literal,
+  .dark .prose-doc .hljs-symbol,
+  .dark .prose-doc .hljs-bullet {
+    color: #fcd34d;
+  }
+  .dark .prose-doc .hljs-title,
+  .dark .prose-doc .hljs-section,
+  .dark .prose-doc .hljs-function {
+    color: #93c5fd;
+  }
+  .dark .prose-doc .hljs-attr,
+  .dark .prose-doc .hljs-attribute,
+  .dark .prose-doc .hljs-variable,
+  .dark .prose-doc .hljs-template-variable,
+  .dark .prose-doc .hljs-params,
+  .dark .prose-doc .hljs-property {
+    color: #fda4af;
+  }
+  .dark .prose-doc .hljs-meta,
+  .dark .prose-doc .hljs-meta .hljs-keyword {
+    color: #5eead4;
+  }
   .prose-doc blockquote {
     @apply border-l-2 border-accent-500 pl-4 italic text-ink-300 mb-2;
   }

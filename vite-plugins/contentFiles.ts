@@ -68,6 +68,28 @@ export function contentFilesPlugin(): Plugin {
           reply(500, { error: String(err) });
         }
       });
+
+      // Deletes aren't covered by handleHotUpdate, and a globbed file
+      // disappearing forces a full page reload (scroll jumps to the top).
+      const send = server.ws.send.bind(server.ws);
+      server.ws.send = (...args: Parameters<typeof server.ws.send>) => {
+        const payload = args[0];
+        const triggeredBy =
+          payload && typeof payload === "object" && "triggeredBy" in payload
+            ? payload.triggeredBy
+            : undefined;
+        if (
+          payload &&
+          typeof payload === "object" &&
+          "type" in payload &&
+          payload.type === "full-reload" &&
+          typeof triggeredBy === "string" &&
+          Date.now() - (recentWrites.get(path.resolve(triggeredBy)) ?? 0) < HMR_SUPPRESS_MS
+        ) {
+          return;
+        }
+        return send(...args);
+      };
     },
     handleHotUpdate({ file }) {
       const writtenAt = recentWrites.get(path.resolve(file));

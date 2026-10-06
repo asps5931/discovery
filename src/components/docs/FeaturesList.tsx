@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Plus, X } from "lucide-react";
+import { ConfirmButton } from "../ConfirmButton";
 import { getRequirementMarkdown } from "../../lib/discovery";
 import { saveDocOverride } from "../../lib/docStorage";
 import { stripFrontmatter } from "../../lib/frontmatter";
@@ -95,14 +96,15 @@ export function FeaturesList({
                 }}
                 className="flex-1 min-w-0 bg-transparent rounded px-1 py-0.5 text-sm text-ink-100 border border-transparent hover:border-ink-600 focus:border-accent-500 focus:outline-none"
               />
-              <button
-                type="button"
-                onClick={() => save(items.filter((_, i) => i !== index))}
-                aria-label={`Remove "${title.trim() || "feature"}"`}
+              <ConfirmButton
+                message={`Remove "${title.trim() || "this feature"}"?`}
+                confirmLabel="Remove"
+                onConfirm={() => save(items.filter((_, i) => i !== index))}
+                ariaLabel={`Remove "${title.trim() || "feature"}"`}
                 className="shrink-0 rounded p-0.5 text-ink-500 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-ink-200 transition-opacity"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </ConfirmButton>
             </li>
           ))}
         </ul>

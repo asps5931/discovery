@@ -1,0 +1,6 @@
+mutation call($input: ProductSetInput!) {
+  productSet(input: $input) {
+    product { id }
+    userErrors { field message }
+  }
+}
