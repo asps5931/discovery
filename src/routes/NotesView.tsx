@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
+  ChevronDown,
   ChevronRight,
   Plus,
   Trash2,
@@ -237,6 +238,18 @@ function NoteGroupView({
 
   const total = fileNotes.length + userNotes.length;
 
+  const docKeys = useMemo(
+    () => [
+      ...visibleUserNotes.map((n) => `${clientSlug}/user/${n.id}`),
+      ...visibleFileNotes.map((n) => `${clientSlug}/${groupSlug}/${n.slug}`),
+    ],
+    [visibleUserNotes, visibleFileNotes, clientSlug, groupSlug]
+  );
+  const docOpenVersion = useDocOpenVersion();
+  const allOpen =
+    groupSlug !== "documents" ||
+    (docOpenVersion >= 0 && docKeys.every((key) => (loadDocOpen()[key] ?? true) === true));
+
   const tocItems = useMemo(
     () => [
       ...visibleUserNotes.map((n) => ({
@@ -378,12 +391,27 @@ function NoteGroupView({
             </div>
           )}
 
-        <TableOfContents items={tocItems} title={noun === "document" ? "Documents" : "Notes"} />
+        <TableOfContents
+          items={tocItems}
+          title={noun === "document" ? "Documents" : "Notes"}
+          action={
+            groupSlug === "documents" ? (
+              <button
+                type="button"
+                onClick={() => setAllDocsOpen(docKeys, !allOpen)}
+                className="text-sm text-ink-300 hover:text-accent-700 dark:hover:text-accent-400 transition-colors"
+              >
+                {allOpen ? "Collapse all" : "Expand all"}
+              </button>
+            ) : undefined
+          }
+        />
 
         <div className="space-y-4">
           {visibleUserNotes.map((n) => (
             <UserNoteCard
               key={n.id}
+              collapsible={groupSlug === "documents"}
               id={`note-user-${n.id}`}
               clientSlug={clientSlug}
               noteId={n.id}
@@ -404,6 +432,7 @@ function NoteGroupView({
           {visibleFileNotes.map((n) => (
             <FileNoteCard
               key={n.slug}
+              collapsible={groupSlug === "documents"}
               id={`note-${n.slug}`}
               clientSlug={clientSlug}
               groupSlug={groupSlug}
@@ -520,8 +549,83 @@ function TagEditor({ tags, onChange }: { tags: string[]; onChange: (tags: string
   );
 }
 
+const DOC_OPEN_KEY = "discovery-document-open";
+const DOC_OPEN_EVENT = "discovery-document-open-changed";
+
+function loadDocOpen(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(DOC_OPEN_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeDocOpen(next: Record<string, boolean>) {
+  try {
+    localStorage.setItem(DOC_OPEN_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event(DOC_OPEN_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
+
+function saveDocOpen(key: string, open: boolean) {
+  writeDocOpen({ ...loadDocOpen(), [key]: open });
+}
+
+function setAllDocsOpen(keys: string[], open: boolean) {
+  const next = { ...loadDocOpen() };
+  for (const key of keys) next[key] = open;
+  writeDocOpen(next);
+}
+
+function useDocOpenVersion() {
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const bump = () => setVersion((value) => value + 1);
+    window.addEventListener(DOC_OPEN_EVENT, bump);
+    return () => window.removeEventListener(DOC_OPEN_EVENT, bump);
+  }, []);
+  return version;
+}
+
+function useDocOpen(storageKey: string, anchorId: string, enabled: boolean) {
+  const [open, setOpen] = useState(() => (enabled ? (loadDocOpen()[storageKey] ?? true) : true));
+
+  useEffect(() => {
+    if (!enabled) return;
+    const expandIfTargeted = () => {
+      if (window.location.hash !== `#${anchorId}`) return;
+      setOpen(true);
+      saveDocOpen(storageKey, true);
+    };
+    expandIfTargeted();
+    const sync = () => setOpen(loadDocOpen()[storageKey] ?? true);
+    window.addEventListener("hashchange", expandIfTargeted);
+    window.addEventListener(DOC_OPEN_EVENT, sync);
+    return () => {
+      window.removeEventListener("hashchange", expandIfTargeted);
+      window.removeEventListener(DOC_OPEN_EVENT, sync);
+    };
+  }, [enabled, anchorId, storageKey]);
+
+  const toggle = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      saveDocOpen(storageKey, next);
+      return next;
+    });
+  };
+
+  return { open: enabled ? open : true, toggle };
+}
+
 function FileNoteCard({
   id,
+  collapsible,
   clientSlug,
   groupSlug,
   note,
@@ -531,6 +635,7 @@ function FileNoteCard({
   deleteMessage,
 }: {
   id: string;
+  collapsible?: boolean;
   clientSlug: string;
   groupSlug: string;
   note: { clientSlug: string; group: string; slug: string; name: string };
@@ -540,6 +645,7 @@ function FileNoteCard({
   deleteMessage: string;
 }) {
   const slug = note.slug;
+  const { open, toggle } = useDocOpen(`${clientSlug}/${groupSlug}/${slug}`, id, !!collapsible);
   const initial = getNoteMarkdown(clientSlug, groupSlug, slug) ?? "";
   const [markdown, setMarkdown] = useState(initial);
   const todo = isTodoList(initial);
@@ -554,43 +660,59 @@ function FileNoteCard({
       id={id}
       className="border border-ink-700 rounded-xl bg-ink-900 overflow-hidden scroll-mt-8"
     >
-      <div className="border-b border-ink-700 px-6 py-3 flex items-center justify-between bg-ink-800/50">
+      <div className={`${open ? "border-b border-ink-700" : ""} px-6 py-3 flex items-center justify-between bg-ink-800/50`}>
         <div className="flex items-center gap-2 min-w-0 flex-1">
+          {collapsible && (
+            <button
+              type="button"
+              onClick={toggle}
+              aria-expanded={open}
+              aria-label={`${open ? "Collapse" : "Expand"} ${getRequirementTitle(note, "note")}`}
+              className="rounded p-0.5 text-ink-400 hover:text-ink-50"
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${open ? "" : "-rotate-90"}`} />
+            </button>
+          )}
           <CalendarDays className="h-4 w-4 shrink-0 text-ink-400" />
           <h2 className="text-lg font-semibold text-ink-50 min-w-0 flex-1">
             <EditableRequirementTitle doc={note} kind="note" />
           </h2>
         </div>
-        <ConfirmButton
-          message={deleteMessage}
-          onConfirm={onDelete}
-          className="flex items-center gap-1 text-xs text-ink-400 hover:text-red-400 transition-colors"
-        >
-          <Trash2 className="h-3.5 w-3.5" /> Delete
-        </ConfirmButton>
         <Link
           to={`/${clientSlug}/references/${groupSlug}/${slug}`}
-          className="shrink-0 ml-4 text-xs text-accent-700 dark:text-accent-400 hover:text-accent-800 dark:hover:text-accent-300 transition-colors"
+          className="shrink-0 text-xs text-accent-700 dark:text-accent-400 hover:text-accent-800 dark:hover:text-accent-300 transition-colors"
         >
           View →
         </Link>
+        <ConfirmButton
+          message={deleteMessage}
+          onConfirm={onDelete}
+          className="ml-4 flex items-center gap-1 text-xs text-ink-400 hover:text-red-400 transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5" /> Delete
+        </ConfirmButton>
       </div>
-      <div className="px-6 py-3 border-b border-ink-700">
-        <TagEditor tags={tags} onChange={onTagsChange} />
-      </div>
-      <div className="px-4 py-4">
-        {todo ? (
-          <TodoEditor markdown={markdown} onSave={handleSave} />
-        ) : (
-          <InlineMarkdownEditor value={markdown} onSave={handleSave} />
-        )}
-      </div>
+      {open && (
+        <>
+          <div className="px-6 py-3 border-b border-ink-700">
+            <TagEditor tags={tags} onChange={onTagsChange} />
+          </div>
+          <div className="px-4 py-4">
+            {todo ? (
+              <TodoEditor markdown={markdown} onSave={handleSave} />
+            ) : (
+              <InlineMarkdownEditor value={markdown} onSave={handleSave} />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 function UserNoteCard({
   id,
+  collapsible,
   clientSlug,
   noteId,
   title,
@@ -604,6 +726,7 @@ function UserNoteCard({
   onContentSaved,
 }: {
   id: string;
+  collapsible?: boolean;
   clientSlug: string;
   noteId: string;
   title: string;
@@ -616,6 +739,7 @@ function UserNoteCard({
   deleteMessage: string;
   onContentSaved: () => void;
 }) {
+  const { open, toggle } = useDocOpen(`${clientSlug}/user/${noteId}`, id, !!collapsible);
   const [markdown, setMarkdown] = useState(content);
   const todo = kind === "todo" || isTodoList(content);
   const formattedDate = new Date(date).toLocaleDateString(undefined, {
@@ -635,8 +759,19 @@ function UserNoteCard({
       id={id}
       className="border border-ink-700 rounded-xl bg-ink-900 overflow-hidden scroll-mt-8"
     >
-      <div className="border-b border-ink-700 px-6 py-3 flex items-center justify-between bg-ink-800/50">
+      <div className={`${open ? "border-b border-ink-700" : ""} px-6 py-3 flex items-center justify-between bg-ink-800/50`}>
         <div className="flex items-center gap-2">
+          {collapsible && (
+            <button
+              type="button"
+              onClick={toggle}
+              aria-expanded={open}
+              aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+              className="rounded p-0.5 text-ink-400 hover:text-ink-50"
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${open ? "" : "-rotate-90"}`} />
+            </button>
+          )}
           <CalendarDays className="h-4 w-4 text-ink-400" />
           <h2 className="text-lg font-semibold text-ink-50">{title}</h2>
           <span className="text-xs text-ink-400">{formattedDate}</span>
@@ -649,16 +784,20 @@ function UserNoteCard({
           <Trash2 className="h-3.5 w-3.5" /> Delete
         </ConfirmButton>
       </div>
-      <div className="px-6 py-3 border-b border-ink-700">
-        <TagEditor tags={tags} onChange={onTagsChange} />
-      </div>
-      <div className="px-4 py-4">
-        {todo ? (
-          <TodoEditor markdown={markdown} onSave={handleSave} />
-        ) : (
-          <InlineMarkdownEditor value={markdown} onSave={handleSave} />
-        )}
-      </div>
+      {open && (
+        <>
+          <div className="px-6 py-3 border-b border-ink-700">
+            <TagEditor tags={tags} onChange={onTagsChange} />
+          </div>
+          <div className="px-4 py-4">
+            {todo ? (
+              <TodoEditor markdown={markdown} onSave={handleSave} />
+            ) : (
+              <InlineMarkdownEditor value={markdown} onSave={handleSave} />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

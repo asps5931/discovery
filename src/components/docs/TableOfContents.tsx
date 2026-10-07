@@ -18,9 +18,11 @@ export function slugifyHeading(text: string): string {
 export function TableOfContents({
   items,
   title = "On this page",
+  action,
 }: {
   items: TocItem[];
   title?: string;
+  action?: React.ReactNode;
 }) {
   if (items.length === 0) return null;
 
@@ -39,9 +41,12 @@ export function TableOfContents({
       aria-label="Table of contents"
       className="mb-8 rounded-xl border border-ink-700 bg-ink-900 p-5"
     >
-      <h2 className="text-xs uppercase tracking-wider text-ink-400 font-semibold mb-3">
-        {title}
-      </h2>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-xs uppercase tracking-wider text-ink-400 font-semibold">
+          {title}
+        </h2>
+        {action}
+      </div>
       <ol className="list-decimal list-outside ml-5 space-y-1.5 text-ink-400">
         {tree.map(({ item, children }) => (
           <li key={item.id} className="pl-1">
