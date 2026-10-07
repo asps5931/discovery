@@ -4,6 +4,7 @@ import {
   type DetailedHTMLProps,
   type HTMLAttributes,
 } from "react";
+import { PocOffline } from "../../../../../components/PocOffline";
 
 const SHOP = "tapestry-checkout-demo.myshopify.com";
 const KIT_SRC =
@@ -41,24 +42,38 @@ export default function CheckoutKitPoc() {
     [PRODUCTS[0].id]: 1,
   });
   const [status, setStatus] = useState("Checkout opens in a popup.");
+  const [offline, setOffline] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     const onComplete = () => setStatus("Order completed.");
     const onClose = () => setStatus("Checkout closed.");
     let el: Element | null = null;
     let cancelled = false;
+    const failed = () => {
+      if (!cancelled) setOffline(true);
+    };
+    const timer = window.setTimeout(() => {
+      if (!customElements.get("shopify-checkout")) failed();
+    }, 8000);
 
     async function setup() {
       if (!customElements.get("shopify-checkout")) {
-        if (!document.querySelector(`script[src="${KIT_SRC}"]`)) {
-          const script = document.createElement("script");
+        let script = document.querySelector(`script[src="${KIT_SRC}"]`) as HTMLScriptElement | null;
+        if (!script) {
+          script = document.createElement("script");
           script.type = "module";
           script.src = KIT_SRC;
+          script.onerror = failed;
           document.head.appendChild(script);
+        } else {
+          script.addEventListener("error", failed);
         }
         await customElements.whenDefined("shopify-checkout");
       }
       if (cancelled) return;
+      window.clearTimeout(timer);
+      setOffline(false);
       el = document.querySelector("shopify-checkout");
       el?.addEventListener("checkout:complete", onComplete);
       el?.addEventListener("checkout:close", onClose);
@@ -67,10 +82,25 @@ export default function CheckoutKitPoc() {
     void setup();
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
       el?.removeEventListener("checkout:complete", onComplete);
       el?.removeEventListener("checkout:close", onClose);
     };
-  }, []);
+  }, [retry]);
+
+  if (offline) {
+    return (
+      <PocOffline
+        title="Checkout Kit"
+        detail="Shopify's checkout component did not load. Start the discovery app from the project root, then check again:"
+        command="npm run dev"
+        onRetry={() => {
+          setOffline(false);
+          setRetry((value) => value + 1);
+        }}
+      />
+    );
+  }
 
   const lines = Object.values(qty).reduce((sum, n) => sum + n, 0);
   const url = checkoutUrl(qty);

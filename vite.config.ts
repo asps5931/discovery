@@ -4,11 +4,13 @@ import mdx from "@mdx-js/rollup";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
 import fs from "node:fs";
+import { bulkImportPlugin } from "./vite-plugins/bulkImport";
 import { contentFilesPlugin } from "./vite-plugins/contentFiles";
 
 export default defineConfig({
   plugins: [
     contentFilesPlugin(),
+    bulkImportPlugin(),
     {
       // Serve .mdx?raw as plain text so MDX transform does not compile it.
       name: "mdx-as-raw-text",

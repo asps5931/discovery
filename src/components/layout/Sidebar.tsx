@@ -226,30 +226,18 @@ export function Sidebar() {
                     />
                   )}
 
-                  {(clientPocs.length > 0 || client.slug === "commerce") && (
+                  {clientPocs.length > 0 && (
                     <SidebarSection
                       sectionKey={`${client.slug}:pocs`}
                       label="POCs"
                       icon={<FlaskConical className="h-3.5 w-3.5" />}
-                      items={[
-                        ...(client.slug === "commerce"
-                          ? [
-                              {
-                                slug: "headless",
-                                name: "Headless",
-                                path: "http://localhost:3100/",
-                                external: true,
-                              },
-                            ]
-                          : []),
-                        ...clientPocs
-                          .filter((p) => p.slug !== "cart-drawer")
-                          .map((p) => ({
-                            slug: p.slug,
-                            name: p.name,
-                            path: `/${client.slug}/pocs/${p.slug}`,
-                          })),
-                      ]}
+                      items={clientPocs
+                        .filter((p) => p.slug !== "cart-drawer")
+                        .map((p) => ({
+                          slug: p.slug,
+                          name: p.name,
+                          path: `/${client.slug}/pocs/${p.slug}`,
+                        }))}
                       location={location}
                       open={sectionOpen[`${client.slug}:pocs`] ?? true}
                       onToggle={() => toggleSection(`${client.slug}:pocs`)}

@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const runPath = path.join(root, "data/luxury-bags-bulk.json");
+const runPath = path.join(root, "data/bulk-import/run.json");
 const apiVersion = "2026-07";
 
 function stagedUpload(filename) {
@@ -69,9 +69,9 @@ function failOn(errors, label) {
   }
 }
 
-async function start(accessToken, jsonlPath) {
-  const mutationPath = jsonlPath.replace(/\.jsonl$/, ".graphql");
-  if (!fs.existsSync(mutationPath)) throw new Error(`Missing mutation file ${mutationPath}`);
+async function start(accessToken, jsonlPath, mutationPath) {
+  const mutationFile = mutationPath ? path.resolve(mutationPath) : jsonlPath.replace(/\.jsonl$/, ".graphql");
+  if (!fs.existsSync(mutationFile)) throw new Error(`Missing mutation file ${mutationFile}`);
   const filename = path.basename(jsonlPath);
   const staged = await graphql(accessToken, stagedUpload(filename));
   failOn(staged.stagedUploadsCreate.userErrors, "Upload");
@@ -91,7 +91,7 @@ async function start(accessToken, jsonlPath) {
         userErrors { field message }
       }
     }`,
-    { mutation: fs.readFileSync(mutationPath, "utf8"), stagedUploadPath: key },
+    { mutation: fs.readFileSync(mutationFile, "utf8"), stagedUploadPath: key },
   );
   failOn(started.bulkOperationRunMutation.userErrors, "Bulk import");
   const id = started.bulkOperationRunMutation.bulkOperation.id;
@@ -147,7 +147,7 @@ function timeOfDay(iso) {
 }
 
 function writeLog(current, jsonlPath, total) {
-  const logsDir = path.join(root, "data/logs");
+  const logsDir = path.join(root, "data/bulk-import/logs");
   fs.mkdirSync(logsDir, { recursive: true });
   const numericId = String(current.id).split("/").pop();
   const logPath = path.join(logsDir, `${path.basename(jsonlPath, ".jsonl")}-${numericId}.log`);
@@ -221,15 +221,18 @@ async function watch(accessToken, id, jsonlPath) {
 function runFile() {
   const arg = process.argv[2];
   if (!arg) {
-    console.error("Usage: node scripts/bulk-import.mjs <file.jsonl>");
+    console.error("Usage: node scripts/bulk-import.mjs <file.jsonl> [mutation.graphql]");
     console.error("       node scripts/bulk-import.mjs status");
     process.exit(1);
   }
   if (arg === "status") return JSON.parse(fs.readFileSync(runPath, "utf8"));
-  return { file: path.resolve(arg) };
+  return {
+    file: path.resolve(arg),
+    mutation: process.argv[3] ? path.resolve(process.argv[3]) : undefined,
+  };
 }
 
 const accessToken = await token();
 const run = runFile();
-const started = run.id ? run : await start(accessToken, run.file);
+const started = run.id ? run : await start(accessToken, run.file, run.mutation);
 await watch(accessToken, started.id, started.file);
