@@ -22,7 +22,7 @@ import {
   getRequirementTitle,
   useTitlesVersion,
 } from "../components/docs/EditableTitle";
-import { FEATURES_LIST_GROUP, FeaturesList, FeaturesListPage } from "../components/docs/FeaturesList";
+import { FEATURES_LIST_GROUP, FeaturesListPage } from "../components/docs/FeaturesList";
 
 function NewRequirement({
   clientSlug,
@@ -313,14 +313,8 @@ function RequirementGroupView({
   const groupName = group.name;
   useTitlesVersion();
 
-  if (group.slug === FEATURES_LIST_GROUP && group.docs[0]) {
-    return (
-      <FeaturesListPage
-        clientName={clientName}
-        clientSlug={clientSlug}
-        docSlug={group.docs[0].slug}
-      />
-    );
+  if (group.slug === FEATURES_LIST_GROUP) {
+    return <FeaturesListPage clientName={clientName} clientSlug={clientSlug} />;
   }
   const listedGroups = groups.filter((g) => g.slug !== FEATURES_LIST_GROUP);
   const allCount = listedGroups.reduce((n, g) => n + g.docs.length, 0);
@@ -437,18 +431,16 @@ function RequirementDocSection({
         <h2 className="text-lg font-semibold text-ink-50 min-w-0 flex-1">
           <RequirementTitle doc={doc} />
         </h2>
-        {groupSlug !== FEATURES_LIST_GROUP && (
-          <ConfirmButton
-            message={`Delete "${requirementKey(doc)} ${getRequirementTitle(doc)}"?`}
-            onConfirm={() => {
-              removeRequirement(clientSlug, groupSlug, docSlug);
-              onDeleted();
-            }}
-            className="shrink-0 flex items-center gap-1 text-xs text-ink-400 hover:text-red-400 transition-colors"
-          >
-            <Trash2 className="h-3.5 w-3.5" /> Delete
-          </ConfirmButton>
-        )}
+        <ConfirmButton
+          message={`Delete "${requirementKey(doc)} ${getRequirementTitle(doc)}"?`}
+          onConfirm={() => {
+            removeRequirement(clientSlug, groupSlug, docSlug);
+            onDeleted();
+          }}
+          className="shrink-0 flex items-center gap-1 text-xs text-ink-400 hover:text-red-400 transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5" /> Delete
+        </ConfirmButton>
         <Link
           to={`/${clientSlug}/requirements/${groupSlug}/${docSlug}`}
           className="shrink-0 text-xs text-accent-700 dark:text-accent-400 hover:text-accent-800 dark:hover:text-accent-300 transition-colors"
@@ -457,9 +449,7 @@ function RequirementDocSection({
         </Link>
       </div>
       <div className="px-4 py-4">
-        {groupSlug === FEATURES_LIST_GROUP ? (
-          <FeaturesList clientSlug={clientSlug} groupSlug={groupSlug} docSlug={docSlug} />
-        ) : markdown ? (
+        {markdown ? (
           <InlineMarkdownEditor value={markdown} onSave={handleSave} />
         ) : (
           <div className="text-ink-400 text-sm px-2">Document not found.</div>
@@ -561,31 +551,23 @@ function RequirementDocView({
             </span>
             <EditableRequirementTitle doc={doc} className="flex-1" />
           </h1>
-          {groupSlug !== FEATURES_LIST_GROUP && (
-            <ConfirmButton
-              message={`Delete "${requirementKey(doc)} ${getRequirementTitle(doc)}"?`}
-              onConfirm={() => {
-                removeRequirement(clientSlug, groupSlug, docSlug);
-                onDeleted();
-                navigate(`/${clientSlug}/requirements/${groupSlug}`);
-              }}
-              className="shrink-0 flex items-center gap-1 text-xs text-ink-400 hover:text-red-400 transition-colors"
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Delete
-            </ConfirmButton>
-          )}
+          <ConfirmButton
+            message={`Delete "${requirementKey(doc)} ${getRequirementTitle(doc)}"?`}
+            onConfirm={() => {
+              removeRequirement(clientSlug, groupSlug, docSlug);
+              onDeleted();
+              navigate(`/${clientSlug}/requirements/${groupSlug}`);
+            }}
+            className="shrink-0 flex items-center gap-1 text-xs text-ink-400 hover:text-red-400 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </ConfirmButton>
         </div>
 
-        {groupSlug === FEATURES_LIST_GROUP ? (
-          <FeaturesList clientSlug={clientSlug} groupSlug={groupSlug} docSlug={docSlug} />
-        ) : (
-          <>
-            <TableOfContents items={tocItems} title="On this page" />
-            <div ref={contentRef}>
-              <InlineMarkdownEditor value={markdown} onSave={handleSave} />
-            </div>
-          </>
-        )}
+        <TableOfContents items={tocItems} title="On this page" />
+        <div ref={contentRef}>
+          <InlineMarkdownEditor value={markdown} onSave={handleSave} />
+        </div>
 
         <div className="flex items-center justify-between mt-12 pt-6 border-t border-ink-700">
           {prevDoc ? (

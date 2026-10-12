@@ -41,6 +41,29 @@
   body {
     @apply bg-ink-950 text-ink-100 font-sans antialiased;
   }
+  .features-sheet {
+    color: #111827;
+    isolation: isolate;
+    transform: translateZ(0);
+  }
+  .features-sheet-univer {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+  /* CSS fullscreen: keep Univer portal menus (⋯) visible above the sheet */
+  .features-sheet--fs .features-sheet-univer {
+    overflow: visible;
+  }
+  /* Reduce scroll hairlines on canvas grid */
+  .features-sheet canvas {
+    outline: 1px solid transparent;
+  }
+  /* Univer more-menu / popovers must sit above our fullscreen shell (z-200) */
+  [data-u-comp="mobile-more-menu"],
+  [id^="univer-popup-portal"] {
+    z-index: 3000 !important;
+  }
   h1, h2, h3, h4 {
     @apply font-semibold tracking-tight;
   }
@@ -113,6 +136,46 @@
   }
   .prose-doc pre code {
     @apply bg-transparent text-ink-100 p-0;
+  }
+  /*
+   * Mermaid ADA: force black-on-white. .prose-doc uses light text for dark mode;
+   * Mermaid htmlLabels / SVG must not inherit that (fails WCAG on light panels).
+   */
+  .prose-doc .mermaid-diagram {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #000000 !important;
+    @apply my-4 overflow-x-auto rounded-lg p-4;
+  }
+  .prose-doc .mermaid-diagram-svg,
+  .prose-doc .mermaid-diagram svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .prose-doc .mermaid-diagram svg text,
+  .prose-doc .mermaid-diagram svg tspan {
+    fill: #000000 !important;
+    color: #000000 !important;
+  }
+  .prose-doc .mermaid-diagram .nodeLabel,
+  .prose-doc .mermaid-diagram .edgeLabel,
+  .prose-doc .mermaid-diagram .cluster-label,
+  .prose-doc .mermaid-diagram .label,
+  .prose-doc .mermaid-diagram foreignObject,
+  .prose-doc .mermaid-diagram foreignObject div,
+  .prose-doc .mermaid-diagram foreignObject span,
+  .prose-doc .mermaid-diagram foreignObject p,
+  .prose-doc .mermaid-diagram foreignObject * {
+    color: #000000 !important;
+    fill: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+  }
+  .prose-doc .mermaid-diagram-fallback {
+    @apply m-0 whitespace-pre-wrap font-mono text-sm;
+    color: #000000 !important;
   }
   /* Inline-code color is more specific in dark mode; keep block text neutral. */
   .dark .prose-doc pre code {
@@ -290,6 +353,17 @@
   background: rgb(var(--accent-500) / 0.12);
   pointer-events: none;
   z-index: 2;
+}
+.ProseMirror th ul,
+.ProseMirror td ul,
+.ProseMirror th ol,
+.ProseMirror td ol {
+  margin: 0.15rem 0;
+  padding-left: 1.1rem;
+}
+.ProseMirror th li + li,
+.ProseMirror td li + li {
+  margin-top: 0.1rem;
 }
 .ProseMirror th p,
 .ProseMirror td p {

@@ -1,7 +1,3 @@
----
-title: "timesheets"
----
-
 ## **Time entries: September 28–October 2, 2026**
 
 Hours without a stated duration use the suggested allocations discussed.

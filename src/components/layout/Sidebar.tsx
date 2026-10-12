@@ -216,7 +216,7 @@ export function Sidebar() {
                         slug: g.slug,
                         name: g.name,
                         path: `/${client.slug}/requirements/${g.slug}`,
-                        badge: g.slug === "features-list" ? undefined : `${g.docs.length}`,
+                        badge: `${g.docs.length}`,
                       }))}
                       location={location}
                       open={sectionOpen[`${client.slug}:requirements`] ?? true}

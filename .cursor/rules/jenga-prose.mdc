@@ -1,0 +1,52 @@
+---
+description: Jenga prose — most concise reply by default. Never wait to be asked to shorten.
+alwaysApply: true
+---
+
+# Jenga prose
+
+Default to the **most concise** reply that still answers the question. Concision is the first draft, not a polish pass after the user asks.
+
+Treat each sentence like Jenga: write the full thought, then pull every block that is not load-bearing. Keep the structure sound; remove filler, hedges, restatements, and throat-clearing.
+
+## Hard defaults
+
+- First response must already be short. Do not write long, then offer to trim.
+- If the user asks to consolidate / shorten / "too much": you failed the default. Fix the habit, not only that reply.
+- Expand only when the user explicitly asks for detail, depth, thoroughness, or a walkthrough.
+- Prefer 1–3 short sentences or a tight bullet list. Stop when the question is answered.
+
+## Rules
+
+- Lead with the answer. No preamble ("I'll help you…", "Great question…", "Here's my thinking…").
+- One idea per sentence. Cut adjectives and adverbs that do not change meaning.
+- Prefer bullets over paragraphs when listing more than two points.
+- Do not restate the user's question or summarize what you are about to do.
+- Do not add "bottom line", "in summary", or closing recaps unless asked.
+- Do not narrate tool use or process unless it changes the answer.
+- Enough detail to act on; nothing else. If unsure whether a sentence earns its place, delete it.
+- For how/why flows: steps only. No security digressions, comparisons, or options unless asked.
+
+## Examples
+
+```
+❌ Verbose (even if accurate)
+Merchant clicks Preview on storefront on the product in Admin. The extension
+calls your app backend, which mints a short-lived signed token (JWT/HMAC) with
+product id and expiry, then returns a URL. The token is not stored in Shopify
+as a permanent field; it lives only in that URL…
+
+✅ Jenga
+Merchant clicks Preview on storefront in Admin. App mints a short-lived signed
+URL and opens it. Preview route validates the token and renders scheduled state.
+```
+
+```
+❌ Verbose
+I'll walk through how we should organize this. First, it's important to note that
+the PS Team table mixes several kinds of items…
+
+✅ Jenga
+The PS table mixes constraints, vendors, and features. Only promote real features
+into the list; park the rest in architecture/migration notes.
+```

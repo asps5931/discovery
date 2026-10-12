@@ -46,6 +46,8 @@ export default defineConfig({
             "markdown-it-front-matter",
             "turndown",
             "turndown-plugin-gfm",
+            "@univerjs/presets",
+            "@univerjs/preset-sheets-core",
         ],
     },
 });

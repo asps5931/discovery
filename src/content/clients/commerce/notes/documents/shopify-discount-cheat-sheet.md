@@ -1,5 +1,5 @@
 ---
-title: "Shopify Discount Cheat Sheet"
+title: "Shopify Discounts"
 ---
 
 # Shopify checkout discounts

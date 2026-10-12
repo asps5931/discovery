@@ -1,114 +1,200 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Plus, X } from "lucide-react";
-import { ConfirmButton } from "../ConfirmButton";
-import { getRequirementMarkdown } from "../../lib/discovery";
-import { saveDocOverride } from "../../lib/docStorage";
-import { stripFrontmatter } from "../../lib/frontmatter";
+import { ChevronRight, Maximize2, Minimize2 } from "lucide-react";
+import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
+import UniverPresetSheetsCoreEnUS from "@univerjs/preset-sheets-core/locales/en-US";
+import { createUniver, LocaleType, mergeLocales, type FUniver } from "@univerjs/presets";
+import "@univerjs/preset-sheets-core/lib/index.css";
+import { getFeaturesSheet, saveFeaturesSheet } from "../../lib/featuresSheet";
+import { loadSheetIntoUniver, readSheetFromUniver } from "../../lib/featuresSheetUniver";
 
 export const FEATURES_LIST_GROUP = "features-list";
 
-function parseTitles(raw: string): string[] {
-  return stripFrontmatter(raw)
-    .split(/\r?\n/)
-    .map((line) => line.match(/^\s*[-*]\s+(.*)$/))
-    .filter((m): m is RegExpMatchArray => !!m)
-    .map((m) => m[1].trim())
-    .filter(Boolean);
+const zoomKey = (clientSlug: string) => `discovery:features-sheet-zoom:${clientSlug}`;
+
+function readStoredZoom(clientSlug: string): number | null {
+  const n = Number(localStorage.getItem(zoomKey(clientSlug)));
+  return Number.isFinite(n) && n >= 0.1 && n <= 4 ? n : null;
 }
 
-function serializeTitles(titles: string[]): string {
-  return titles.length ? titles.map((title) => `- ${title.replace(/\s+/g, " ")}`).join("\n") + "\n" : "";
-}
+export function FeaturesList({ clientSlug }: { clientSlug: string }) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const apiRef = useRef<FUniver | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [status, setStatus] = useState<"ready" | "saving" | "saved" | "error">("ready");
+  const [fullscreen, setFullscreen] = useState(false);
 
-export function FeaturesList({
-  clientSlug,
-  groupSlug,
-  docSlug,
-}: {
-  clientSlug: string;
-  groupSlug: string;
-  docSlug: string;
-}) {
-  const [items, setItems] = useState<string[]>(() =>
-    parseTitles(getRequirementMarkdown(clientSlug, groupSlug, docSlug) ?? "")
-  );
-  const itemsRef = useRef(items);
-  const [draft, setDraft] = useState("");
+  const persist = useCallback(() => {
+    const api = apiRef.current;
+    if (!api) return;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      setStatus("saving");
+      try {
+        saveFeaturesSheet(clientSlug, readSheetFromUniver(api));
+        setStatus("saved");
+      } catch (err) {
+        console.error(err);
+        setStatus("error");
+      }
+    }, 500);
+  }, [clientSlug]);
 
-  const write = (next: string[]) => {
-    saveDocOverride("requirement", clientSlug, groupSlug, docSlug, serializeTitles(next));
-  };
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
 
-  const save = (next: string[]) => {
-    itemsRef.current = next;
-    setItems(next);
-    write(next);
-  };
+    const container = document.createElement("div");
+    container.className = "features-sheet-univer";
+    container.style.height = "100%";
+    container.style.width = "100%";
+    host.append(container);
 
-  const add = (e: React.FormEvent) => {
-    e.preventDefault();
-    const title = draft.trim();
-    if (!title) return;
-    save([...items, title]);
-    setDraft("");
-  };
+    const { univer, univerAPI } = createUniver({
+      locale: LocaleType.EN_US,
+      locales: {
+        [LocaleType.EN_US]: mergeLocales(UniverPresetSheetsCoreEnUS),
+      },
+      presets: [
+        UniverSheetsCorePreset({
+          container,
+          toolbar: true,
+          header: true,
+          contextMenu: true,
+          formulaBar: false,
+        }),
+      ],
+    });
+
+    apiRef.current = univerAPI;
+    const savedZoom = readStoredZoom(clientSlug) ?? 1;
+    loadSheetIntoUniver(univerAPI, getFeaturesSheet(clientSlug), savedZoom);
+
+    // Re-apply after render mounts; create-time zoomRatio alone can be overwritten.
+    const zoomTimers = [50, 200, 500].map((ms) =>
+      window.setTimeout(() => {
+        try {
+          const sheet = univerAPI.getActiveWorkbook()?.getActiveSheet();
+          if (!sheet) return;
+          if (Math.abs(sheet.getZoom() - savedZoom) > 0.001) sheet.zoom(savedZoom);
+        } catch {
+          /* disposed */
+        }
+      }, ms),
+    );
+
+    const sub = univerAPI.addEvent(univerAPI.Event.SheetValueChanged, (params) => {
+      persist();
+      try {
+        const sheet = univerAPI.getActiveWorkbook()?.getActiveSheet();
+        const ranges = (params as { effectedRanges?: Array<{ startRow?: number; endRow?: number }> })
+          ?.effectedRanges;
+        if (!sheet || !ranges?.length) return;
+        for (const range of ranges) {
+          const start = range.startRow ?? 0;
+          const end = range.endRow ?? start;
+          sheet.setRowAutoHeight?.(start, end - start + 1);
+          for (let r = start; r <= end; r++) sheet.autoFitRow?.(r);
+        }
+      } catch {
+        /* ignore */
+      }
+    });
+
+    // SheetZoomChanged misses some zoom paths; the operation always runs.
+    const zoomSub = univerAPI.getActiveWorkbook()?.onCommandExecuted((command) => {
+      if (command.id !== "sheet.operation.set-zoom-ratio") return;
+      const zoom = (command.params as { zoomRatio?: number } | undefined)?.zoomRatio;
+      if (typeof zoom === "number" && zoom >= 0.1 && zoom <= 4) {
+        localStorage.setItem(zoomKey(clientSlug), String(zoom));
+      }
+    });
+
+    return () => {
+      clearTimeout(saveTimer.current);
+      for (const id of zoomTimers) clearTimeout(id);
+      sub?.dispose?.();
+      zoomSub?.dispose?.();
+      apiRef.current = null;
+      queueMicrotask(() => {
+        univer.dispose();
+        container.remove();
+      });
+    };
+  }, [clientSlug, persist]);
+
+  // CSS fullscreen (not requestFullscreen): Univer toolbar menus portal to document.body,
+  // and browser fullscreen hides anything outside the fullscreen element.
+  const toggleFullscreen = useCallback(() => {
+    setFullscreen((v) => !v);
+  }, []);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [fullscreen]);
 
   return (
-    <div>
-      <form onSubmit={add} className="flex gap-2 mb-6">
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Add a feature…"
-          className="flex-1 rounded-lg bg-ink-800 border border-ink-700 px-3 py-2 text-sm text-ink-50 focus:border-accent-500 focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={!draft.trim()}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg bg-accent-500 text-white disabled:opacity-50"
-        >
-          <Plus className="h-4 w-4" />
-          Add
-        </button>
-      </form>
-
-      {items.length === 0 ? (
-        <p className="text-sm text-ink-400">No features yet.</p>
-      ) : (
-        <ul className="border border-ink-700 rounded-xl bg-ink-900 divide-y divide-ink-700">
-          {items.map((title, index) => (
-            <li key={index} className="group flex items-center gap-2 px-3 py-2">
-              <input
-                value={title}
-                aria-label={`Feature ${index + 1} title`}
-                onChange={(e) => {
-                  const next = itemsRef.current.slice();
-                  next[index] = e.target.value;
-                  itemsRef.current = next;
-                  setItems(next);
-                  const trimmed = next.map((item) => item.trim());
-                  if (trimmed.every(Boolean)) write(trimmed);
-                }}
-                onBlur={() => save(itemsRef.current.map((item) => item.trim()).filter(Boolean))}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") e.currentTarget.blur();
-                }}
-                className="flex-1 min-w-0 bg-transparent rounded px-1 py-0.5 text-sm text-ink-100 border border-transparent hover:border-ink-600 focus:border-accent-500 focus:outline-none"
-              />
-              <ConfirmButton
-                message={`Remove "${title.trim() || "this feature"}"?`}
-                confirmLabel="Remove"
-                onConfirm={() => save(items.filter((_, i) => i !== index))}
-                ariaLabel={`Remove "${title.trim() || "feature"}"`}
-                className="shrink-0 rounded p-0.5 text-ink-500 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-ink-200 transition-opacity"
-              >
-                <X className="h-4 w-4" />
-              </ConfirmButton>
-            </li>
-          ))}
-        </ul>
+    <div className="flex flex-col gap-2 min-h-0 flex-1">
+      {!fullscreen && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-ink-400">
+            Source of truth: <code className="text-ink-300">features-sheet.md</code>.
+            Toolbar Bold for selected text; Wrap under the ⋯ menu. Notes/Shopify rows are sized to show full wrapped content. Enter for line breaks in a cell.
+            {status === "saving"
+              ? " · saving…"
+              : status === "saved"
+                ? " · saved"
+                : status === "error"
+                  ? " · save failed"
+                  : ""}
+          </p>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-ink-700 px-2.5 py-1.5 text-xs text-ink-200 hover:bg-ink-800 hover:text-ink-50 transition-colors"
+            aria-label="Full screen"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+            Full screen
+          </button>
+        </div>
       )}
+
+      <div
+        ref={shellRef}
+        className={`features-sheet bg-white ${
+          fullscreen
+            ? "features-sheet--fs fixed inset-0 z-[200] flex flex-col overflow-visible rounded-none border-0"
+            : "relative min-h-0 min-h-[560px] flex-1 overflow-hidden rounded-xl border border-ink-700"
+        }`}
+      >
+        {fullscreen && (
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="absolute top-2 right-2 z-[220] inline-flex items-center gap-1.5 rounded-lg border border-ink-300 bg-white/95 px-2.5 py-1.5 text-xs text-ink-800 hover:bg-ink-100"
+          >
+            <Minimize2 className="h-3.5 w-3.5" />
+            Exit
+          </button>
+        )}
+        <div
+          ref={hostRef}
+          className={`min-h-0 ${fullscreen ? "h-full flex-1" : "h-full min-h-[560px]"}`}
+          style={{ height: fullscreen ? "100%" : 560 }}
+        />
+      </div>
     </div>
   );
 }
@@ -116,15 +202,13 @@ export function FeaturesList({
 export function FeaturesListPage({
   clientName,
   clientSlug,
-  docSlug,
 }: {
   clientName: string;
   clientSlug: string;
-  docSlug: string;
 }) {
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
-      <div className="px-10 pt-6">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      <div className="px-10 pt-6 shrink-0">
         <Link to="/" className="text-sm text-ink-400 hover:text-ink-50 transition-colors">
           Clients
         </Link>
@@ -143,9 +227,9 @@ export function FeaturesListPage({
         <span className="text-sm text-ink-200">Features List</span>
       </div>
 
-      <div className="px-10 py-8 max-w-4xl w-full">
-        <h1 className="text-2xl font-bold text-ink-50 mb-6">Features List</h1>
-        <FeaturesList clientSlug={clientSlug} groupSlug={FEATURES_LIST_GROUP} docSlug={docSlug} />
+      <div className="px-10 py-6 flex flex-col min-h-0 flex-1 w-full">
+        <h1 className="text-2xl font-bold text-ink-50 mb-4 shrink-0">Features List</h1>
+        <FeaturesList clientSlug={clientSlug} />
       </div>
     </div>
   );

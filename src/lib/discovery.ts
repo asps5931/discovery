@@ -49,7 +49,7 @@ const noteModules = import.meta.glob("../content/clients/*/notes/**/*.md", {
   import: "default",
 });
 
-const siteProfileModules = import.meta.glob("../content/clients/*/{site-profile,action-items}.md", {
+const siteProfileModules = import.meta.glob("../content/clients/*/{site-profile,action-items,features-sheet}.md", {
   eager: true,
   query: "?raw",
   import: "default",
@@ -65,7 +65,7 @@ const pocModules = import.meta.glob("../content/clients/*/pocs/*/index.tsx", {
   eager: false,
 });
 
-const ACRONYMS = new Set(["pdp", "plp"]);
+const ACRONYMS = new Set(["pdp", "plp", "sfcc"]);
 
 function titleFromSlug(slug: string): string {
   return slug
@@ -525,7 +525,8 @@ export async function createRequirement(
   clientSlug: string,
   group: string,
   title: string,
-  description: string
+  description: string,
+  options?: { body?: string }
 ): Promise<string> {
   const key = nextRequirementKey(clientSlug);
   const taken = new Set(
@@ -538,7 +539,10 @@ export async function createRequirement(
   for (let i = 2; taken.has(slug); i++) slug = `${base}-${i}`;
 
   const body = description.trim() || "_No description yet._";
-  const content = `---\nkey: ${key}\ntitle: ${JSON.stringify(title.trim())}\n---\n\n#### Description\n\n${body}\n`;
+  const content =
+    options?.body != null
+      ? `---\nkey: ${key}\ntitle: ${JSON.stringify(title.trim())}\n---\n\n${options.body}`
+      : `---\nkey: ${key}\ntitle: ${JSON.stringify(title.trim())}\n---\n\n#### Description\n\n${body}\n`;
   const ok = await writeContentFile(`clients/${clientSlug}/requirements/${group}/${slug}.md`, content);
   if (!ok) throw new Error("Could not write requirement file");
   return slug;

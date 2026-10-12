@@ -2,6 +2,8 @@
 title: "Discovery Outline"
 ---
 
+### General
+
 -   Discover the existing implementation and requirements.
     
 -   Build a checkout POC to validate Shopify capabilities.
@@ -10,6 +12,8 @@ title: "Discovery Outline"
     
     -   Getting access to their current storefront code base will prov will be beneficial if they use strict types as we’ll know the shapes need to normalize shopify’s data to.
         
+-   Great training / documentation process to grow tapestry expertise in Shopify.
+    
 
 &nbsp;
 

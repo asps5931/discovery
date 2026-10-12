@@ -4,6 +4,7 @@ export function ConfirmButton({
   message,
   confirmLabel = "Delete",
   onConfirm,
+  onOpen,
   className,
   children,
   ariaLabel,
@@ -12,6 +13,7 @@ export function ConfirmButton({
   message: string;
   confirmLabel?: string;
   onConfirm: () => void;
+  onOpen?: () => void;
   className?: string;
   children: React.ReactNode;
   ariaLabel?: string;
@@ -35,7 +37,10 @@ export function ConfirmButton({
         className={className}
         aria-label={ariaLabel}
         title={title}
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          onOpen?.();
+          setOpen(true);
+        }}
       >
         {children}
       </button>
@@ -57,7 +62,6 @@ export function ConfirmButton({
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                autoFocus
                 className="px-3 py-1.5 text-sm text-ink-200 hover:text-ink-50"
                 onClick={() => setOpen(false)}
               >

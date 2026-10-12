@@ -30,9 +30,9 @@ import {
   Table as TableIcon,
   TableColumnsSplit,
   TableRowsSplit,
-  Trash2,
 } from "lucide-react";
 import { markdownToHtml, htmlToMarkdown } from "../../lib/markdownCodec";
+import { MermaidFigure } from "../../lib/mermaidFigure";
 import { imageFileToDataUrl, imageFilesFrom } from "../../lib/imageData";
 import { stripFrontmatter } from "../../lib/frontmatter";
 
@@ -107,6 +107,7 @@ export function InlineMarkdownEditor({
       TableHeader,
       TableCell,
       Image.configure({ inline: false, allowBase64: true }),
+      MermaidFigure,
     ],
     editable: false,
     content: markdownToHtml(value),
@@ -359,6 +360,13 @@ function ToolbarButtons({
   setLink: () => void;
 }) {
   const inTable = editor.isActive("table");
+  const tablePos = useRef(0);
+  const rememberTablePos = () => {
+    tablePos.current = editor.state.selection.from;
+  };
+  const runInTable = (command: "deleteColumn" | "deleteRow" | "deleteTable") => {
+    editor.chain().focus().setTextSelection(tablePos.current)[command]().run();
+  };
 
   return (
     <>
@@ -435,7 +443,8 @@ function ToolbarButtons({
           <ConfirmButton
             className={btn(false)}
             message="Delete this column?"
-            onConfirm={() => editor.chain().focus().deleteColumn().run()}
+            onOpen={rememberTablePos}
+            onConfirm={() => runInTable("deleteColumn")}
             ariaLabel="Delete column"
             title="Delete column"
           >
@@ -446,7 +455,8 @@ function ToolbarButtons({
           <ConfirmButton
             className={btn(false)}
             message="Delete this row?"
-            onConfirm={() => editor.chain().focus().deleteRow().run()}
+            onOpen={rememberTablePos}
+            onConfirm={() => runInTable("deleteRow")}
             ariaLabel="Delete row"
             title="Delete row"
           >
@@ -457,11 +467,14 @@ function ToolbarButtons({
           <ConfirmButton
             className={btn(false)}
             message="Delete this table?"
-            onConfirm={() => editor.chain().focus().deleteTable().run()}
+            onOpen={rememberTablePos}
+            onConfirm={() => runInTable("deleteTable")}
             ariaLabel="Delete table"
             title="Delete table"
           >
-            <Trash2 className="h-4 w-4" />
+            <span className="text-[11px] font-semibold tabular-nums leading-none px-0.5">
+              −table
+            </span>
           </ConfirmButton>
         </>
       )}

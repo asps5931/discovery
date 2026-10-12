@@ -1,0 +1,90 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+const ENDPOINT = "/__content";
+// Writes made through the endpoint skip HMR so the page doesn't reload mid-edit.
+const HMR_SUPPRESS_MS = 3000;
+function readJson(req) {
+    return new Promise((resolve, reject) => {
+        let body = "";
+        req.setEncoding("utf8");
+        req.on("data", (chunk) => (body += chunk));
+        req.on("end", () => {
+            try {
+                resolve(JSON.parse(body || "{}"));
+            }
+            catch (err) {
+                reject(err);
+            }
+        });
+        req.on("error", reject);
+    });
+}
+/** Dev-only endpoint that persists in-app edits to markdown under src/content/clients. */
+export function contentFilesPlugin() {
+    let clientsRoot = "";
+    const recentWrites = new Map();
+    return {
+        name: "content-files",
+        apply: "serve",
+        configResolved(config) {
+            clientsRoot = path.resolve(config.root, "src/content/clients");
+        },
+        configureServer(server) {
+            server.middlewares.use(ENDPOINT, async (req, res) => {
+                const reply = (status, payload) => {
+                    res.statusCode = status;
+                    res.setHeader("Content-Type", "application/json");
+                    res.end(JSON.stringify(payload));
+                };
+                if (req.method !== "POST")
+                    return reply(405, { error: "POST only" });
+                try {
+                    const { action = "write", path: rel, content } = await readJson(req);
+                    if (!rel)
+                        return reply(400, { error: "Missing path" });
+                    const abs = path.resolve(clientsRoot, path.relative("clients", rel));
+                    if (!abs.startsWith(clientsRoot + path.sep) || !abs.endsWith(".md")) {
+                        return reply(400, { error: "Path must be a .md file under src/content/clients" });
+                    }
+                    recentWrites.set(abs, Date.now());
+                    if (action === "delete") {
+                        await fs.rm(abs, { force: true });
+                    }
+                    else {
+                        if (typeof content !== "string")
+                            return reply(400, { error: "Missing content" });
+                        await fs.mkdir(path.dirname(abs), { recursive: true });
+                        await fs.writeFile(abs, content, "utf8");
+                    }
+                    reply(200, { ok: true });
+                }
+                catch (err) {
+                    reply(500, { error: String(err) });
+                }
+            });
+            // Deletes aren't covered by handleHotUpdate, and a globbed file
+            // disappearing forces a full page reload (scroll jumps to the top).
+            const send = server.ws.send.bind(server.ws);
+            server.ws.send = (...args) => {
+                const payload = args[0];
+                const triggeredBy = payload && typeof payload === "object" && "triggeredBy" in payload
+                    ? payload.triggeredBy
+                    : undefined;
+                if (payload &&
+                    typeof payload === "object" &&
+                    "type" in payload &&
+                    payload.type === "full-reload" &&
+                    typeof triggeredBy === "string" &&
+                    Date.now() - (recentWrites.get(path.resolve(triggeredBy)) ?? 0) < HMR_SUPPRESS_MS) {
+                    return;
+                }
+                return send(...args);
+            };
+        },
+        handleHotUpdate({ file }) {
+            const writtenAt = recentWrites.get(path.resolve(file));
+            if (writtenAt && Date.now() - writtenAt < HMR_SUPPRESS_MS)
+                return [];
+        },
+    };
+}
