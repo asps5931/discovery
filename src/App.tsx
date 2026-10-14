@@ -14,7 +14,7 @@ function PortalLayout() {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 min-h-0 overflow-hidden">
         <Suspense
           fallback={
             <div className="flex items-center justify-center h-full text-ink-400">
@@ -56,7 +56,7 @@ export default function App() {
           element={<NotesView />}
         />
         <Route
-          path="/:clientSlug/references/:groupSlug/:docSlug"
+          path="/:clientSlug/references/:groupSlug/*"
           element={<NotesView />}
         />
       </Route>

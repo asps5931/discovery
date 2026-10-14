@@ -2,10 +2,14 @@ import type { FUniver } from "@univerjs/presets";
 import {
   cellHasMarkup,
   escapeHtml,
+  slugifyTabName,
   tokenizeCellHtml,
   trimEmptyRows,
+  uniqueTabSlug,
   wrapColumnIndexes,
   type FeaturesSheetData,
+  type FeaturesTab,
+  type FeaturesWorkbook,
 } from "./featuresSheet";
 
 type RichLike = {
@@ -103,27 +107,34 @@ export function htmlToRichText(api: FUniver, html: string) {
   return data;
 }
 
-export function loadSheetIntoUniver(
-  api: FUniver,
-  data: FeaturesSheetData,
-  zoomRatio = 1,
-): void {
-  const zoom = Math.min(4, Math.max(0.1, zoomRatio));
-  const workbook = api.createWorkbook({
-    name: "Features",
-    sheetOrder: ["features"],
-    sheets: {
-      features: {
-        id: "features",
-        name: "Features",
-        zoomRatio: zoom,
-        rowCount: Math.max(data.rows.length + 20, 40),
-        columnCount: Math.max(data.headers.length + 3, 8),
-      },
-    },
-  });
+const widthFor = (header: string, index: number) => {
+  const key = header.toLowerCase();
+  if (key === "shopify") return 420;
+  if (key === "notes") return 300;
+  if (key === "feature") return 170;
+  if (key === "category") return 120;
+  if (key === "key" || key === "id") return 90;
+  return index < 3 ? 120 : 200;
+};
 
-  const sheet = workbook.getActiveSheet();
+function fillWorksheet(
+  api: FUniver,
+  sheet: {
+    getRange: (...args: number[]) => {
+      setRichTextValueForCell: (v: unknown) => unknown;
+      setValue: (v: unknown) => unknown;
+      setFontWeight: (v: string) => { setBackground: (v: string) => { setHorizontalAlignment: (v: string) => { setVerticalAlignment: (v: string) => unknown } } };
+      setWrap: (v: boolean) => { setVerticalAlignment: (v: string) => { setWrapStrategy?: (v: unknown) => unknown } };
+      setWrapStrategy?: (v: unknown) => unknown;
+      setHorizontalAlignment: (v: string) => unknown;
+    };
+    setColumnWidth: (c: number, w: number) => unknown;
+    setFrozenRows?: (n: number) => unknown;
+    setRowHeight?: (row: number, height: number) => unknown;
+    setRowHeightsForced?: (start: number, num: number, height: number) => unknown;
+  },
+  data: FeaturesSheetData,
+): string[][] {
   const grid = [data.headers, ...data.rows];
   const rowCount = grid.length;
   const colCount = data.headers.length;
@@ -149,18 +160,12 @@ export function loadSheetIntoUniver(
       .setVerticalAlignment("bottom");
   }
 
-  // Give Notes/Shopify room so wrap + auto-height can show full text.
-  const widthFor = (header: string, index: number) => {
-    const key = header.toLowerCase();
-    if (key === "shopify") return 420;
-    if (key === "notes") return 300;
-    if (key === "feature") return 170;
-    if (key === "category") return 120;
-    if (key === "key") return 90;
-    return index < 3 ? 120 : 200;
-  };
   for (let c = 0; c < colCount; c++) {
-    sheet.setColumnWidth(c, widthFor(data.headers[c] ?? "", c));
+    const saved = data.columnWidths?.[c];
+    sheet.setColumnWidth(
+      c,
+      typeof saved === "number" && saved > 0 ? saved : widthFor(data.headers[c] ?? "", c),
+    );
   }
 
   const wrapCols = wrapColumnIndexes(data.headers);
@@ -178,15 +183,82 @@ export function loadSheetIntoUniver(
     sheet.setFrozenRows(1);
   }
 
-  // Wrap columns need explicit row heights; Univer auto-fit alone was clipping Shopify/Notes.
   sizeRowsForWrappedContent(sheet, grid, wrapCols);
-  window.setTimeout(() => {
-    try {
-      sizeRowsForWrappedContent(sheet, grid, wrapCols);
-    } catch {
-      /* disposed */
-    }
-  }, 50);
+  return grid;
+}
+
+export function loadWorkbookIntoUniver(
+  api: FUniver,
+  workbookData: FeaturesWorkbook,
+  zoomRatio = 1,
+  activeSlug?: string | null,
+): Map<string, string> {
+  const zoom = Math.min(4, Math.max(0.1, zoomRatio));
+  const tabs =
+    workbookData.tabs.length > 0
+      ? workbookData.tabs
+      : [{ slug: "features", name: "Features", order: 0, data: { headers: [], rows: [] } }];
+
+  const used = new Set<string>();
+  const sheetIdToSlug = new Map<string, string>();
+  const sheetOrder: string[] = [];
+  const sheets: Record<string, { id: string; name: string; zoomRatio: number; rowCount: number; columnCount: number }> =
+    {};
+
+  for (const tab of tabs) {
+    const slug = uniqueTabSlug(slugifyTabName(tab.slug || tab.name), used);
+    sheetOrder.push(slug);
+    sheetIdToSlug.set(slug, slug);
+    sheets[slug] = {
+      id: slug,
+      name: tab.name || slug,
+      zoomRatio: zoom,
+      rowCount: Math.max(tab.data.rows.length + 20, 40),
+      columnCount: Math.max(tab.data.headers.length + 3, 8),
+    };
+  }
+
+  const workbook = api.createWorkbook({
+    name: "Features",
+    sheetOrder,
+    sheets,
+  });
+
+  tabs.forEach((tab, i) => {
+    const slug = sheetOrder[i]!;
+    const sheet = workbook.getSheetBySheetId?.(slug) ?? workbook.getSheetByName?.(tab.name);
+    if (!sheet) return;
+    const data = tab.data;
+    const grid = fillWorksheet(api, sheet as never, data);
+    window.setTimeout(() => {
+      try {
+        sizeRowsForWrappedContent(sheet as never, grid, wrapColumnIndexes(data.headers));
+      } catch {
+        /* disposed */
+      }
+    }, 50);
+  });
+
+  const preferred =
+    (activeSlug && workbook.getSheetBySheetId?.(activeSlug)) ||
+    workbook.getSheetBySheetId?.(sheetOrder[0]!) ||
+    workbook.getSheets?.()?.[0];
+  if (preferred && typeof workbook.setActiveSheet === "function") workbook.setActiveSheet(preferred);
+
+  return sheetIdToSlug;
+}
+
+/** @deprecated Prefer loadWorkbookIntoUniver */
+export function loadSheetIntoUniver(
+  api: FUniver,
+  data: FeaturesSheetData,
+  zoomRatio = 1,
+): void {
+  loadWorkbookIntoUniver(
+    api,
+    { tabs: [{ slug: "features", name: "Features", order: 0, data }] },
+    zoomRatio,
+  );
 }
 
 /** Use Univer's own auto-height APIs so wrapped Shopify/Notes cells fully show. */
@@ -247,10 +319,17 @@ function sizeRowsForWrappedContent(
   }
 }
 
-export function readSheetFromUniver(api: FUniver): FeaturesSheetData {
-  const sheet = api.getActiveWorkbook()?.getActiveSheet();
-  if (!sheet) return { headers: [], rows: [] };
-
+function readWorksheetData(sheet: {
+  getLastRow: () => number;
+  getLastColumn: () => number;
+  getColumnWidth?: (c: number) => number;
+  getRange: (
+    r: number,
+    c: number,
+    rr: number,
+    cc: number,
+  ) => { getValues: (rich?: boolean) => unknown[][] };
+}): FeaturesSheetData {
   const lastRow = Math.max(sheet.getLastRow(), 0);
   const lastCol = Math.max(sheet.getLastColumn(), 0);
   const values = sheet.getRange(0, 0, lastRow + 1, lastCol + 1).getValues(true);
@@ -262,5 +341,56 @@ export function readSheetFromUniver(api: FUniver): FeaturesSheetData {
     values.slice(1).map((row) => headers.map((_, c) => cellValueToStorage(row?.[c]))),
   );
 
-  return { headers, rows };
+  const columnWidths =
+    typeof sheet.getColumnWidth === "function" && headers.length
+      ? headers.map((_, c) => {
+          const w = Number(sheet.getColumnWidth!(c));
+          return Number.isFinite(w) && w > 0 ? w : widthFor(headers[c] ?? "", c);
+        })
+      : undefined;
+
+  return columnWidths ? { headers, rows, columnWidths } : { headers, rows };
+}
+
+export function readSheetFromUniver(api: FUniver): FeaturesSheetData {
+  const sheet = api.getActiveWorkbook()?.getActiveSheet();
+  if (!sheet) return { headers: [], rows: [] };
+  return readWorksheetData(sheet);
+}
+
+export function readWorkbookFromUniver(
+  api: FUniver,
+  sheetIdToSlug?: Map<string, string>,
+): { workbook: FeaturesWorkbook; sheetIdToSlug: Map<string, string> } {
+  const wb = api.getActiveWorkbook();
+  const sheets = wb?.getSheets?.() ?? [];
+  if (!sheets.length) {
+    return {
+      workbook: { tabs: [{ slug: "features", name: "Features", order: 0, data: { headers: [], rows: [] } }] },
+      sheetIdToSlug: new Map([["features", "features"]]),
+    };
+  }
+
+  const used = new Set<string>();
+  const nextMap = new Map<string, string>();
+  const tabs: FeaturesTab[] = sheets.map((sheet, order) => {
+    const id = typeof sheet.getSheetId === "function" ? sheet.getSheetId() : `sheet-${order}`;
+    const name =
+      (typeof sheet.getSheetName === "function" ? sheet.getSheetName() : null) ||
+      (typeof sheet.getName === "function" ? sheet.getName() : null) ||
+      `Sheet${order + 1}`;
+    const preferred =
+      sheetIdToSlug?.get(id) ||
+      slugifyTabName(name);
+    const slug = uniqueTabSlug(preferred, used);
+    nextMap.set(id, slug);
+    return {
+      slug,
+      name: String(name),
+      order,
+      data: readWorksheetData(sheet),
+    };
+  });
+
+  return { workbook: { tabs }, sheetIdToSlug: nextMap };
 }

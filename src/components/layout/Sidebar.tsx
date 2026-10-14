@@ -21,6 +21,7 @@ import {
 } from "../../lib/discovery";
 import { DECKS_CHANGED_EVENT } from "../../lib/deckStorage";
 import { CONTENT_CHANGED_EVENT } from "../../lib/contentSync";
+import { DocumentTree } from "../docs/DocumentTree";
 import { ThemeToggle } from "./ThemeToggle";
 
 const SECTION_STATE_KEY = "discovery-sidebar-sections";
@@ -145,6 +146,12 @@ export function Sidebar() {
           const clientReqGroups = getRequirementGroupsForClient(client.slug);
           const clientPocs = getPocsForClient(client.slug);
           const clientNoteGroups = getNoteGroupsForClient(client.slug);
+          const otherNoteGroups = clientNoteGroups.filter((g) => g.slug !== "documents");
+          const documentsBase = `/${client.slug}/references/documents`;
+          const documentsActive = location.pathname.startsWith(documentsBase);
+          const activeDocSlug = documentsActive
+            ? location.pathname.slice(documentsBase.length).replace(/^\//, "") || undefined
+            : undefined;
           const isActive = location.pathname.startsWith(`/${client.slug}`);
 
           return (
@@ -244,12 +251,55 @@ export function Sidebar() {
                     />
                   )}
 
-                  {clientNoteGroups.length > 0 && (
+                  <div>
+                    <div
+                      className={`flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                        documentsActive
+                          ? "bg-ink-800/80 text-ink-200"
+                          : "text-ink-400 hover:bg-ink-800/50 hover:text-ink-200"
+                      }`}
+                    >
+                      <Link
+                        to={documentsBase}
+                        className="flex min-w-0 flex-1 items-center gap-2"
+                      >
+                        <FileText className="h-3.5 w-3.5 text-ink-500" />
+                        <span className="truncate text-left font-medium">Documents</span>
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => toggleSection(`${client.slug}:documents`)}
+                        aria-expanded={sectionOpen[`${client.slug}:documents`] ?? true}
+                        aria-label={`${
+                          (sectionOpen[`${client.slug}:documents`] ?? true) ? "Collapse" : "Expand"
+                        } Documents`}
+                        className="rounded p-0.5 text-ink-500 hover:text-ink-200"
+                      >
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+                            (sectionOpen[`${client.slug}:documents`] ?? true) ? "" : "-rotate-90"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    {(sectionOpen[`${client.slug}:documents`] ?? true) && (
+                      <div className="mt-0.5 pl-2">
+                        <DocumentTree
+                          clientSlug={client.slug}
+                          activeSlug={activeDocSlug}
+                          compact
+                          heading={null}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {otherNoteGroups.length > 0 && (
                     <SidebarSection
                       sectionKey={`${client.slug}:notes`}
                       label="References"
                       icon={<NotebookPen className="h-3.5 w-3.5" />}
-                      items={clientNoteGroups.map((g) => ({
+                      items={otherNoteGroups.map((g) => ({
                         slug: g.slug,
                         name: g.name,
                         path: `/${client.slug}/references/${g.slug}`,

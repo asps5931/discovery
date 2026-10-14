@@ -53,6 +53,20 @@ export function contentExists(relPath: string): boolean {
   return getCurrentRaw(relPath) !== undefined;
 }
 
+/** Paths under prefix that currently exist (originals + session writes; deletes excluded). */
+export function listContentPaths(prefix: string): string[] {
+  const paths = new Set<string>();
+  for (const p of originals.keys()) {
+    if (p.startsWith(prefix)) paths.add(p);
+  }
+  for (const [p, v] of sessionWrites) {
+    if (!p.startsWith(prefix)) continue;
+    if (v === null) paths.delete(p);
+    else paths.add(p);
+  }
+  return [...paths].sort();
+}
+
 export function resolveDocPath(
   kind: "requirement" | "note",
   clientSlug: string,

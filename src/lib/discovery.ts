@@ -24,6 +24,7 @@ import {
   sessionCreatedSlugs,
   writeContentFile,
 } from "./contentSync";
+import { DOCUMENTS_GROUP, isFolderMarker, listDocumentNotes } from "./documentTree";
 import { getFrontmatterField, replaceBody } from "./frontmatter";
 
 const clientMetaModules = import.meta.glob("../content/clients/*/meta.ts", {
@@ -49,13 +50,20 @@ const noteModules = import.meta.glob("../content/clients/*/notes/**/*.md", {
   import: "default",
 });
 
-const siteProfileModules = import.meta.glob("../content/clients/*/{site-profile,action-items,features-sheet}.md", {
+const siteProfileModules = import.meta.glob("../content/clients/*/{site-profile,action-items}.md", {
+  eager: true,
+  query: "?raw",
+  import: "default",
+});
+
+const featuresSheetModules = import.meta.glob("../content/clients/*/features-sheet/**/*.md", {
   eager: true,
   query: "?raw",
   import: "default",
 });
 
 registerOriginals(siteProfileModules);
+registerOriginals(featuresSheetModules);
 registerOriginals(deckModules);
 registerOriginals(requirementModules);
 registerOriginals(noteModules);
@@ -258,12 +266,27 @@ function discoverNotes(): NoteGroup[] {
   const noteMap = new Map<string, Note>();
 
   for (const path of Object.keys(noteModules)) {
+    const docMatch = path.match(/clients\/([^/]+)\/notes\/documents\/(.+)\.md$/);
+    if (docMatch) {
+      const [, clientSlug, rest] = docMatch;
+      if (isFolderMarker(`${rest}.md`)) continue;
+      const base = rest.includes("/") ? rest.slice(rest.lastIndexOf("/") + 1) : rest;
+      noteMap.set(`${clientSlug}/${DOCUMENTS_GROUP}/${rest}`, {
+        clientSlug,
+        group: DOCUMENTS_GROUP,
+        slug: rest,
+        name: titleFromFilename(base),
+      });
+      continue;
+    }
+
     const match = path.match(
       /clients\/([^/]+)\/notes\/(?:(.+?)\/)?([^/]+)\.md$/
     );
     if (!match) continue;
     const [, clientSlug, groupPath, filename] = match;
     const group = groupPath || "general";
+    if (group === DOCUMENTS_GROUP || group.startsWith(`${DOCUMENTS_GROUP}/`)) continue;
     const noteSlug = filename;
     const key = `${clientSlug}/${group}/${noteSlug}`;
 
@@ -291,9 +314,14 @@ function discoverNotes(): NoteGroup[] {
   }
 
   for (const client of clients) {
-    const key = `${client.slug}/documents`;
+    const key = `${client.slug}/${DOCUMENTS_GROUP}`;
     if (!groupMap.has(key)) {
-      groupMap.set(key, { clientSlug: client.slug, slug: "documents", name: "Documents", notes: [] });
+      groupMap.set(key, {
+        clientSlug: client.slug,
+        slug: DOCUMENTS_GROUP,
+        name: "Documents",
+        notes: [],
+      });
     }
   }
 
@@ -353,6 +381,9 @@ export function getNoteGroupsForClient(clientSlug: string): NoteGroup[] {
   return noteGroups
     .filter((g) => g.clientSlug === clientSlug)
     .map((g) => {
+      if (g.slug === DOCUMENTS_GROUP) {
+        return { ...g, notes: listDocumentNotes(clientSlug) };
+      }
       const created: Note[] = sessionCreatedSlugs(`clients/${clientSlug}/notes/${g.slug}/`)
         .filter((slug) => !g.notes.some((n) => n.slug === slug))
         .map((slug) => ({ clientSlug, group: g.slug, slug, name: titleFromFilename(slug) }));

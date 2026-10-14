@@ -61,4 +61,93 @@ assert.deepEqual(
 );
 assert.equal(tokens[1].text, "media_gallery");
 
-console.log("ok: features sheet Category + HTML tokens");
+function cellToPlainText(value) {
+  return tokenizeCellHtml(String(value ?? ""))
+    .map((t) => (t.type === "break" ? "\n" : (t.text ?? "")))
+    .join("");
+}
+
+function csvEscape(value) {
+  if (/[",\r\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
+
+function featuresSheetToCsv(data) {
+  const grid = [data.headers, ...data.rows].map((row) => row.map(cellToPlainText));
+  return grid.map((row) => row.map(csvEscape).join(",")).join("\r\n");
+}
+
+const exportSample = {
+  headers: ["Key", "Feature"],
+  rows: [["COMM-1", 'Say "hi", please<br><b>bold</b>']],
+};
+const csv = featuresSheetToCsv(exportSample);
+assert.ok(csv.includes('"Say ""hi"", please\nbold"'));
+assert.equal(cellToPlainText("a<br><b>b</b>"), "a\nb");
+
+const { featuresSheetToXlsx } = await import("../src/lib/featuresSheetExport.ts");
+const xlsx = featuresSheetToXlsx(exportSample);
+assert.equal(xlsx[0], 0x50); // P
+assert.equal(xlsx[1], 0x4b); // K
+const asText = new TextDecoder().decode(xlsx);
+assert.ok(asText.includes("sheetData"));
+assert.ok(asText.includes("Say &quot;hi&quot;, please"));
+
+function slugifyTabName(name) {
+  const slug = String(name ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "sheet";
+}
+
+function uniqueTabSlug(base, used) {
+  let slug = base || "sheet";
+  if (!used.has(slug)) {
+    used.add(slug);
+    return slug;
+  }
+  let n = 2;
+  while (used.has(`${slug}-${n}`)) n += 1;
+  const next = `${slug}-${n}`;
+  used.add(next);
+  return next;
+}
+
+function parseFrontmatter(raw) {
+  const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\s*([\s\S]*)$/);
+  if (!m) return { meta: {}, body: raw.trim() };
+  const meta = {};
+  for (const line of m[1].split("\n")) {
+    const idx = line.indexOf(":");
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    let value = line.slice(idx + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    meta[key] = value;
+  }
+  return { meta, body: m[2].trim() };
+}
+
+const used = new Set();
+assert.equal(uniqueTabSlug(slugifyTabName("CMS Notes"), used), "cms-notes");
+assert.equal(uniqueTabSlug(slugifyTabName("CMS Notes"), used), "cms-notes-2");
+
+const tabMd = `---
+title: "Storefront"
+order: 1
+---
+
+{"headers":["Key"],"rows":[["A"]]}
+`;
+const { meta, body } = parseFrontmatter(tabMd);
+assert.equal(meta.title, "Storefront");
+assert.equal(meta.order, "1");
+assert.deepEqual(JSON.parse(body).rows, [["A"]]);
+
+console.log("ok: features sheet Category + HTML tokens + export + multi-tab");

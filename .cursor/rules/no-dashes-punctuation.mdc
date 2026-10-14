@@ -1,0 +1,33 @@
+---
+description: Never use dashes/em dashes in prose; discourage semicolons
+alwaysApply: true
+---
+
+# Punctuation: no dashes, spare semicolons
+
+Applies to assistant chat replies and to prose written into project content (notes, questionnaires, docs, spreadsheet cells). Does not change code operators, URLs, file paths, or markdown list markers (`-` / `*`).
+
+## Dashes
+
+- Never use em dashes (—) or en dashes (–).
+- Do not use a hyphen as a sentence break or aside (e.g. rewrite "Yes - Coach Create" as "Yes. Coach Create").
+- Prefer periods, commas, colons, or separate sentences.
+- Normal compound words that need a hyphen (e.g. `30-day`, `well-known`) are fine when that is standard English spelling.
+
+```
+❌ Yes — Coach Create supports monogram.
+❌ Yes - Coach Create supports monogram.
+✅ Yes. Coach Create supports monogram.
+```
+
+## Semicolons
+
+- Highly discouraged in prose.
+- Prefer a period and a new sentence, or a comma / bullet list when listing items.
+
+```
+❌ Size on apparel; colors often separate PDPs.
+✅ Size on apparel. Colors often separate PDPs.
+✅ Size on apparel
+✅ Colors often separate PDPs
+```

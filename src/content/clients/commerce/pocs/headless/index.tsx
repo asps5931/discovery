@@ -26,8 +26,8 @@ export default function HeadlessPoc() {
     return (
       <PocOffline
         title="Headless"
-        detail="The Hydrogen storefront is not running on port 3100. From the hydrogen directory:"
-        command={"npm run dev -- --port 3100"}
+        detail="The Hydrogen storefront is not running on port 3100. In a new terminal, from this discovery repo root:"
+        command={"cd hydrogen\nnpm run dev -- --port 3100"}
         onRetry={() => {
           setDown(false);
           setRetry((value) => value + 1);

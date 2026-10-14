@@ -1,10 +1,11 @@
 ---
-title: "Features Sheet"
+title: "Features"
+order: 0
 ---
 
 {
   "headers": [
-    "You",
+    "ID",
     "Feature",
     "Category",
     "Notes",
@@ -165,5 +166,12 @@ title: "Features Sheet"
       "Needs a paid app such as Syno Discount Code.",
       "Native supports this. <br><br>One discount, many redeem codes via discountRedeemCodeBulkAdd (max 250 per request; repeat to add more).<br>https://shopify.dev/docs/api/admin-graphql/latest/mutations/discountRedeemCodeBulkAdd"
     ]
+  ],
+  "columnWidths": [
+    90,
+    256.6197967529297,
+    120,
+    300,
+    420
   ]
 }
